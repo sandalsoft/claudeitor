@@ -39,9 +39,8 @@ Write Vitest unit tests for the entire data layer: Claude data readers, git scan
 - [ ] Test fixtures match actual data schemas
 - [ ] All tests pass with `pnpm test`
 ## Done summary
-TBD
-
+Comprehensive Vitest unit tests for the entire data layer: 97 tests across 6 test files covering stats reader, cost reader, pricing reader, session history, settings, skills, agents, model ID mapping, cost calculator, git scanner, config reader (read/write/expandTilde/defaults), and chart helper formatting functions. All tests use temp fixture directories (no real ~/.claude/ reads), cover happy paths, malformed JSON, missing files, empty data, and edge cases.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 5f795b4, d3892a2
+- Tests: pnpm test
 - PRs:
