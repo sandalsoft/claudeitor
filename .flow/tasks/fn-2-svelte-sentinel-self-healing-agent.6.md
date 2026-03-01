@@ -73,9 +73,8 @@ Add git workflow automation, rate limiting, terminal stream UI, and audit loggin
 - [ ] bun test passes with 0 failures
 
 ## Done summary
-TBD
-
+Implemented git fix-branch lifecycle (simple-git), sliding-window rate limiter with circuit breaker, JSONL audit logger, colorized terminal stream UI, and full pipeline wiring connecting tailer->detector->rate-limiter->orchestrator->git->audit->UI with graceful shutdown handling. Added 54 new tests (16 rate-limiter, 11 audit, 27 git) all passing alongside existing 126 tests.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: ef6cd433fc44259b78d8a32c2a146ad62f1143fd
+- Tests: bun test (180 pass, 0 fail), bun run check (tsc --noEmit, 0 errors)
 - PRs:

@@ -86,7 +86,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		aiModel,
 		costAlertThreshold,
 		refreshInterval,
-		themeOverride
+		themeOverride,
+		telemetry: current.telemetry
 	};
 
 	try {

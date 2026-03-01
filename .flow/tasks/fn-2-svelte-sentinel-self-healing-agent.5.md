@@ -62,9 +62,8 @@ Build the `claude -p` fix orchestration layer: receives `DetectedIssue` events f
 - [ ] bun test passes with 0 failures
 
 ## Done summary
-TBD
-
+Built the claude -p fix orchestration layer: orchestrator receives DetectedIssue events, determines single/multi-file strategy with configurable model selection, constructs prompts from SKILL.md templates with context interpolation, spawns headless Claude sessions via Bun.spawn() with timeout and error classification, runs a fail-fast verification gate with configurable commands, and retries up to 3 times with enriched context (stderr + diff) before marking issues as needs_human. Added 60 new tests (126 total) covering orchestrator with mock spawner, verifier with real shell commands, and template interpolation.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: e74808eea9e5ab0a05cec2de37e347f0565b2bfc
+- Tests: bun test (126 pass, 0 fail), bun run check (tsc --noEmit, 0 errors)
 - PRs:

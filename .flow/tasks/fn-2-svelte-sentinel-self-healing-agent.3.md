@@ -56,9 +56,8 @@ Replace all 25+ console.warn/log/error calls across Claudeitor server code with 
 <!-- Updated by plan-sync: fn-2-svelte-sentinel-self-healing-agent.1 implemented logger with signature warn(module, message, attrs?) not logger.warn(message, {module}) -->
 
 ## Done summary
-TBD
-
+Replaced all 25+ console.warn/log/error calls across 14 server-side files with structured logger (info/warn/error) from the telemetry module, including error.type and error.stack attributes on exception records. Updated 5 test spies from console.warn to process.stdout.write to match the logger's output path.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 36d8a0f09761b9bd35372e47a9cadb8fafbb09e1
+- Tests: pnpm check, pnpm test, pnpm build, rg console.(warn|error|log) src/lib/server/ --glob !*.test.ts, rg console.(warn|error|log) src/routes/ --glob !*.test.ts -g *.server.ts
 - PRs:

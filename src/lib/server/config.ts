@@ -5,6 +5,12 @@ import { randomBytes } from 'node:crypto';
 import { withSpan } from './telemetry/span-helpers.js';
 import { warn } from './telemetry/logger.js';
 
+export interface TelemetryConfig {
+	enabled: boolean;
+	path: string;
+	rotationSizeMB: number;
+}
+
 export interface ClaudeitorConfig {
 	claudeDir: string;
 	repoDirs: string[];
@@ -13,6 +19,15 @@ export interface ClaudeitorConfig {
 	costAlertThreshold: number;
 	refreshInterval: number;
 	themeOverride: 'system' | 'light' | 'dark';
+	telemetry: TelemetryConfig;
+}
+
+export function defaultTelemetryConfig(): TelemetryConfig {
+	return {
+		enabled: true,
+		path: '.claudeitor/telemetry.jsonl',
+		rotationSizeMB: 50
+	};
 }
 
 export function defaultConfig(): ClaudeitorConfig {
@@ -23,7 +38,8 @@ export function defaultConfig(): ClaudeitorConfig {
 		aiModel: 'claude-sonnet-4-5-20250929',
 		costAlertThreshold: 50,
 		refreshInterval: 30_000,
-		themeOverride: 'system'
+		themeOverride: 'system',
+		telemetry: defaultTelemetryConfig()
 	};
 }
 
@@ -63,6 +79,18 @@ export async function readConfig(projectRoot?: string): Promise<ClaudeitorConfig
 					? (themeRaw as ClaudeitorConfig['themeOverride'])
 					: defaults.themeOverride;
 
+				const rawTelemetry = (parsed as Record<string, unknown>).telemetry;
+				const parsedTelemetry =
+					typeof rawTelemetry === 'object' && rawTelemetry !== null
+						? (rawTelemetry as Partial<TelemetryConfig>)
+						: {};
+
+				const telemetry: TelemetryConfig = {
+					enabled: parsedTelemetry.enabled ?? defaults.telemetry.enabled,
+					path: parsedTelemetry.path ?? defaults.telemetry.path,
+					rotationSizeMB: parsedTelemetry.rotationSizeMB ?? defaults.telemetry.rotationSizeMB
+				};
+
 				return {
 					claudeDir: expandTilde(parsed.claudeDir ?? defaults.claudeDir),
 					repoDirs: (parsed.repoDirs ?? defaults.repoDirs).map(expandTilde),
@@ -70,7 +98,8 @@ export async function readConfig(projectRoot?: string): Promise<ClaudeitorConfig
 					aiModel: parsed.aiModel ?? defaults.aiModel,
 					costAlertThreshold: parsed.costAlertThreshold ?? defaults.costAlertThreshold,
 					refreshInterval: parsed.refreshInterval ?? defaults.refreshInterval,
-					themeOverride
+					themeOverride,
+					telemetry
 				};
 			} catch (err) {
 				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {

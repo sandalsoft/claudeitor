@@ -64,9 +64,8 @@ Scaffold the svelte-sentinel standalone daemon as a new Bun/TypeScript project. 
 - [ ] bun check (tsc --noEmit) passes with 0 errors
 
 ## Done summary
-TBD
-
+Scaffolded svelte-sentinel as a standalone Bun/TypeScript project with CLI entrypoint (commander), JSONL file tailer (polling, partial-line buffering, rotation detection), record parser (recordType discriminator validation, exception extraction from span events), issue detector (error/warning classification, dedup within 10s window), and config loader (.sentinelrc.json + CLI flags merge). All 66 unit tests pass, TypeScript strict mode check clean.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 8a42b22a98836a92279adcd68dbcc39ef0992db0
+- Tests: bun test (66 pass, 0 fail), bun run check (tsc --noEmit, 0 errors)
 - PRs:
