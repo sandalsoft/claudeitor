@@ -36,12 +36,16 @@ export const load: PageServerLoad = async ({ url }) => {
 	const pageParam = parseInt(url.searchParams.get('page') ?? '1', 10);
 	const currentPage = Math.max(1, isNaN(pageParam) ? 1 : pageParam);
 
-	// Compute time bounds: use dateFrom/dateTo if provided, otherwise 30-day window
+	// Compute time bounds: use dateFrom/dateTo if provided and valid,
+	// otherwise fall back to the default 30-day window.
 	const now = Date.now();
-	const windowStart = dateFrom
-		? new Date(dateFrom + 'T00:00:00').getTime()
-		: now - DEFAULT_WINDOW_DAYS * 86_400_000;
-	const windowEnd = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : now;
+	const defaultStart = now - DEFAULT_WINDOW_DAYS * 86_400_000;
+
+	const parsedFrom = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : NaN;
+	const parsedTo = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : NaN;
+
+	const windowStart = Number.isFinite(parsedFrom) ? parsedFrom : defaultStart;
+	const windowEnd = Number.isFinite(parsedTo) ? parsedTo : now;
 
 	const events: TimelineEvent[] = [];
 	const repoNameSet = new Set<string>();

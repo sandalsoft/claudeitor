@@ -120,7 +120,7 @@
 				title="Clean"
 				value={greenCount}
 				trend="neutral"
-				subtitle="{yellowCount} uncommitted, {redCount} need attention"
+				subtitle={`${yellowCount} dirty, ${redCount} need attention`}
 			/>
 			<StatCard title="Skills" value={data.skillCount} trend="neutral" />
 		</div>

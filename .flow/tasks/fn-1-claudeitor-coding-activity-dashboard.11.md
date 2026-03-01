@@ -64,9 +64,8 @@ Build three related pages: Live (active sessions + activity feed), Repos (reposi
 - [ ] Timeline is paginated for performance
 - [ ] All three pages handle empty data gracefully
 ## Done summary
-TBD
-
+Built Live, Repos, and Timeline pages. Live page detects active Claude sessions via locale-safe ps parsing with polling-based activity feed (recursive setTimeout, TTL-cached git scanning). Repos page lists repositories with green/yellow/red health indicators, sortable by name, activity, or health. Timeline page shows chronological commits and sessions with repo/type/date-range filters and pagination, bounded to a 30-day window for performance.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: aa9c6ee, 318e7f7, 3d4d3f5
+- Tests: pnpm check, pnpm test, pnpm build
 - PRs:

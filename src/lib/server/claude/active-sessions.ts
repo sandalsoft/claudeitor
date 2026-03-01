@@ -27,6 +27,37 @@ export interface ActiveSession {
 }
 
 /**
+ * Parse POSIX etime format [[dd-]hh:]mm:ss into total elapsed seconds.
+ * Examples: "02:15" = 135s, "1:02:15" = 3735s, "3-01:02:15" = 262935s
+ */
+function parseEtime(etime: string): number {
+	let days = 0;
+	let rest = etime;
+
+	// Extract optional days prefix (e.g. "3-01:02:15")
+	const dashIdx = rest.indexOf('-');
+	if (dashIdx !== -1) {
+		days = parseInt(rest.slice(0, dashIdx), 10) || 0;
+		rest = rest.slice(dashIdx + 1);
+	}
+
+	const parts = rest.split(':').map((p) => parseInt(p, 10) || 0);
+	let hours = 0;
+	let minutes = 0;
+	let seconds = 0;
+
+	if (parts.length === 3) {
+		[hours, minutes, seconds] = parts;
+	} else if (parts.length === 2) {
+		[minutes, seconds] = parts;
+	} else {
+		seconds = parts[0] ?? 0;
+	}
+
+	return days * 86400 + hours * 3600 + minutes * 60 + seconds;
+}
+
+/**
  * Detect running Claude Code processes by scanning the process table.
  * Uses `ps -axo` with explicit columns for deterministic parsing
  * (avoids layout-dependent parsing of `ps aux`).
@@ -37,11 +68,10 @@ export async function detectActiveSessions(
 	claudeDir = DEFAULT_CLAUDE_DIR
 ): Promise<ActiveSession[]> {
 	try {
-		// Use `etimes` (elapsed seconds, numeric) instead of locale-dependent
-		// start time strings. maxBuffer handles busy systems.
-		// Column headers suppressed with `=` suffix for cleaner parsing.
+		// Use `etime` (POSIX, works on both macOS and Linux) which outputs
+		// elapsed time as [[dd-]hh:]mm:ss. Headers suppressed with `=`.
 		const { stdout } = await execAsync(
-			'ps -axo pid=,pcpu=,pmem=,etimes=,command=',
+			'ps -axo pid=,pcpu=,pmem=,etime=,command=',
 			{ timeout: 5000, maxBuffer: 8 * 1024 * 1024 }
 		);
 		const lines = stdout.split('\n');
@@ -50,14 +80,17 @@ export async function detectActiveSessions(
 		for (const line of lines) {
 			if (!line.trim()) continue;
 
-			// Columns: PID %CPU %MEM ELAPSED_SECS COMMAND
-			const match = line.trim().match(/^(\d+)\s+([\d.]+)\s+([\d.]+)\s+(\d+)\s+(.+)$/);
+			// Columns: PID %CPU %MEM ETIME COMMAND
+			// ETIME format: [[dd-]hh:]mm:ss (e.g. "02:15", "1:02:15", "3-01:02:15")
+			const match = line
+				.trim()
+				.match(/^(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d:-]+)\s+(.+)$/);
 			if (!match) continue;
 
 			const pid = parseInt(match[1], 10);
 			const cpuPercent = parseFloat(match[2]) || 0;
 			const memPercent = parseFloat(match[3]) || 0;
-			const elapsedSecs = parseInt(match[4], 10);
+			const elapsedSecs = parseEtime(match[4]);
 			const startTime = new Date(Date.now() - elapsedSecs * 1000).toISOString();
 			const command = match[5];
 
@@ -151,47 +184,56 @@ async function correlateWithSessionFiles(
 				continue;
 			}
 
-			// Only inspect a bounded number of .jsonl files
-			const jsonlFiles = files.filter((f) => f.endsWith('.jsonl')).slice(-MAX_FILES_PER_DIR);
+			// Stat all .jsonl files to find the newest ones (readdir order
+			// is not guaranteed). Only keep files modified within 5 minutes.
+			const jsonlNames = files.filter((f) => f.endsWith('.jsonl'));
+			const withMtime: Array<{ name: string; mtimeMs: number }> = [];
 
-			for (const file of jsonlFiles) {
+			for (const f of jsonlNames) {
+				try {
+					const fstat = await stat(join(dirPath, f));
+					if (fstat.mtimeMs > fiveMinAgo) {
+						withMtime.push({ name: f, mtimeMs: fstat.mtimeMs });
+					}
+				} catch {
+					// skip inaccessible files
+				}
+			}
+
+			// Sort newest first, take bounded set
+			withMtime.sort((a, b) => b.mtimeMs - a.mtimeMs);
+			const recentFiles = withMtime.slice(0, MAX_FILES_PER_DIR);
+
+			for (const { name: file } of recentFiles) {
 				if (allAssigned()) break;
 
-				const filePath = join(dirPath, file);
-				try {
-					const fstat = await stat(filePath);
-					if (fstat.mtimeMs <= fiveMinAgo) continue;
+				const sessionId = basename(file, '.jsonl');
+				const projectPath = dir.startsWith('-')
+					? dir.slice(1).replace(/-/g, '/')
+					: dir;
 
-					const sessionId = basename(file, '.jsonl');
-					const projectPath = dir.startsWith('-')
-						? dir.slice(1).replace(/-/g, '/')
-						: dir;
-
-					// Try to match by project path first
-					let assigned = false;
+				// Try to match by project path first
+				let assigned = false;
+				for (const session of sessions) {
+					if (
+						!session.sessionId &&
+						session.project &&
+						projectPath.includes(session.project)
+					) {
+						session.sessionId = sessionId;
+						assigned = true;
+						break;
+					}
+				}
+				// Fall back: assign to first unmatched session without a project
+				if (!assigned) {
 					for (const session of sessions) {
-						if (
-							!session.sessionId &&
-							session.project &&
-							projectPath.includes(session.project)
-						) {
+						if (!session.sessionId && !session.project) {
 							session.sessionId = sessionId;
-							assigned = true;
+							session.project = projectPath;
 							break;
 						}
 					}
-					// Fall back: assign to first unmatched session without a project
-					if (!assigned) {
-						for (const session of sessions) {
-							if (!session.sessionId && !session.project) {
-								session.sessionId = sessionId;
-								session.project = projectPath;
-								break;
-							}
-						}
-					}
-				} catch {
-					continue;
 				}
 			}
 		}

@@ -15,8 +15,10 @@ interface ActivityEvent {
 // TTL cache for the activity feed to avoid re-scanning repos on every poll.
 // Active session detection is cheap and always fresh; git+session scan is
 // cached for 15 seconds so rapid polls don't shell out repeatedly.
+// Keyed by config fingerprint to handle config changes at runtime.
 let cachedEvents: ActivityEvent[] = [];
 let cacheTimestamp = 0;
+let cacheKey = '';
 const CACHE_TTL_MS = 15_000;
 
 async function loadActivityEvents(
@@ -24,7 +26,8 @@ async function loadActivityEvents(
 	repoDirs: string[]
 ): Promise<ActivityEvent[]> {
 	const now = Date.now();
-	if (cacheTimestamp > 0 && now - cacheTimestamp < CACHE_TTL_MS) {
+	const key = `${claudeDir}|${repoDirs.join(',')}`;
+	if (key === cacheKey && cacheTimestamp > 0 && now - cacheTimestamp < CACHE_TTL_MS) {
 		return cachedEvents;
 	}
 
@@ -72,6 +75,7 @@ async function loadActivityEvents(
 	events.sort((a, b) => b.timestamp - a.timestamp);
 	cachedEvents = events.slice(0, 50);
 	cacheTimestamp = now;
+	cacheKey = key;
 
 	return cachedEvents;
 }
