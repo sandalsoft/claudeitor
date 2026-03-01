@@ -44,9 +44,8 @@ Build the Readout page (main dashboard) — the primary view that brings togethe
 - [ ] Layout is responsive (works on different screen widths)
 - [ ] Page loads in under 2 seconds using cache-first strategy
 ## Done summary
-TBD
-
+Built the Readout page (main dashboard) with all sections. Server-side load function fetches stats, costs, sessions, skills, agents, repos, and memory data in parallel. Dashboard assembles: 4 stat cards with computed trend indicators (today vs yesterday for commits, last 7d vs prev 7d for sessions/costs), Activity and When You Work charts, Cost by Model chart, Recent Sessions list (efficient single-pass top-5 selection), Alerts from repo scanning hygiene issues, Recently Active repo chips with combined activity scoring (commits + sessions + working tree), and bottom info cards. SSE realtime store connected for live stats and session updates. Path-based stable hashing prevents key collisions from duplicate repo basenames. Local date boundaries used consistently across all trend comparisons.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 3a8b284,ec2a55e,147bfd0
+- Tests: 74 passed, 0 failed (vitest run)
 - PRs:
