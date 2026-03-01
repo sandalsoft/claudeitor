@@ -34,9 +34,16 @@ Build the Costs page with detailed cost breakdown by model, by day, and by repo.
 - [ ] Empty state when no cost data available
 - [ ] Charts consistent with Readout page chart styling
 ## Done summary
-TBD
-
+Built the Costs page with full cost analytics:
+- Server load aggregates cost data with calendar-date filtering (DST-safe)
+- Summary stat cards: total cost, today, this week, this month
+- D3.js area chart for daily cost trend with interactive tooltips showing per-model breakdown
+- D3.js donut chart for per-model cost distribution with legend
+- Sortable cost details table with date, model, token counts, and cost
+- Date range selector (7/14/30/90 days) with URL-based state
+- Empty state when no cost data available
+- Addressed all code review findings: calendar-based filtering, DST-safe date math, render guards
 ## Evidence
 - Commits:
-- Tests:
+- Tests: svelte-check: 0 errors, vitest: 74 tests passed, vite build: success
 - PRs:
