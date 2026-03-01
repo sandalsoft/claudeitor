@@ -61,9 +61,8 @@ Build the Sessions page with three views: session list (searchable/filterable), 
 - [ ] Large sessions (4MB+) load without crashing (streaming/chunked)
 - [ ] Empty state shown when no sessions exist
 ## Done summary
-TBD
-
+Built Sessions page with searchable/sortable session list, session detail page with metadata cards (duration, model, tokens, messages), AI summary generation via Anthropic API (server-only, cached), and session replay with scrubable timeline slider, playback controls, and best-effort file diffs from tool calls.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 1d44ae7bc42bdecc8919d2e0840d401eb0182686
+- Tests: pnpm check, pnpm test, pnpm build
 - PRs:
