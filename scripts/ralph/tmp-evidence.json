@@ -1,1 +1,6 @@
-{"commits":["cd77583"],"tests":["22 passing (9 model-mapping + 13 reader integration)"],"verification":["TypeScript check: 0 errors","vitest run: 22 passed","pnpm build: success"]}
+{
+  "commits": ["8331020"],
+  "tests": "npx vitest run (58 passed, 0 failed)",
+  "typecheck": "svelte-check (0 errors, 0 warnings)",
+  "review": "codex impl-review verdict: SHIP"
+}
