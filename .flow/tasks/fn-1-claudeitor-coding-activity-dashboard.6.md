@@ -39,9 +39,8 @@ Build three D3.js chart components for the dashboard: ActivityChart (30-day bar 
 - [ ] Charts render correctly with empty data (no crashes, shows empty state)
 - [ ] D3 scales and axes render cleanly with proper labels and formatting
 ## Done summary
-TBD
-
+Built three D3.js chart components (ActivityChart, HourlyDistributionChart, CostByModelChart), a shared ChartTooltip component, and chart-helpers utility module with 16 unit tests. All charts are responsive, theme-aware, support tooltips on hover, handle empty data gracefully, and integrate with the project's existing Svelte 5 runes and Tailwind v4 patterns.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: aa33c0f417dccdae1850b20c15541fab6f2f7b8e
+- Tests: pnpm check, pnpm test
 - PRs:
