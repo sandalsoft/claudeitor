@@ -50,23 +50,22 @@ Build the core data layer that reads and parses all Claude Code data from ~/.cla
 - agents/ contains markdown files
 - All readers must handle missing files gracefully (return empty/default data)
 ## Acceptance
-- [ ] TypeScript interfaces defined for all data sources (StatsCache, CostCache, PricingData, SessionEntry, SkillInfo, AgentInfo, SettingsData)
-- [ ] readStatsCache() reads and parses ~/.claude/stats-cache.json
-- [ ] readCostCache() reads and parses ~/.claude/readout-cost-cache.json
-- [ ] readPricing() reads and parses ~/.claude/readout-pricing.json
-- [ ] readSessionHistory() parses ~/.claude/history.jsonl into SessionEntry[]
-- [ ] readSkills() lists skill directories from ~/.claude/skills/
-- [ ] readAgents() lists and reads agent files from ~/.claude/agents/
-- [ ] readSettings() reads ~/.claude/settings.json
-- [ ] mapModelId() uses multi-strategy mapping: exact match → regex extraction → normalization → fallback
-- [ ] mapModelId() correctly handles known edge cases (claude-3-5-sonnet, claude-opus-4-5, etc.)
-- [ ] mapModelId() logs warning and returns raw ID for unknown models
-- [ ] All readers return typed defaults when files are missing (no throws)
-- [ ] All readers handle malformed JSON gracefully (try/catch, log warning)
+- [x] TypeScript interfaces defined for all data sources (StatsCache, CostCache, PricingData, SessionEntry, SkillInfo, AgentInfo, SettingsData)
+- [x] readStatsCache() reads and parses ~/.claude/stats-cache.json
+- [x] readCostCache() reads and parses ~/.claude/readout-cost-cache.json
+- [x] readPricing() reads and parses ~/.claude/readout-pricing.json
+- [x] readSessionHistory() parses ~/.claude/history.jsonl into SessionEntry[]
+- [x] readSkills() lists skill directories from ~/.claude/skills/
+- [x] readAgents() lists and reads agent files from ~/.claude/agents/
+- [x] readSettings() reads ~/.claude/settings.json
+- [x] mapModelId() uses multi-strategy mapping: exact match → regex extraction → normalization → fallback
+- [x] mapModelId() correctly handles known edge cases (claude-3-5-sonnet, claude-opus-4-5, etc.)
+- [x] mapModelId() logs warning and returns raw ID for unknown models
+- [x] All readers return typed defaults when files are missing (no throws)
+- [x] All readers handle malformed JSON gracefully (try/catch, log warning)
 ## Done summary
-TBD
-
+Built complete TypeScript data layer for reading ~/.claude/ data sources. Created type definitions matching real on-disk schemas (types.ts), 7 reader modules (stats, costs, sessions, skills, agents, settings, model-mapping), and a multi-strategy model ID mapper. All readers handle missing files and malformed JSON gracefully with typed defaults. 22 vitest tests pass covering model mapping edge cases and reader integration against real data.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: cd77583
+- Tests: 22 passing
 - PRs:
