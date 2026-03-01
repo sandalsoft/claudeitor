@@ -86,12 +86,30 @@ export interface SkillInfo {
 	name: string;
 	path: string;
 	isSymlink: boolean;
+	description?: string;
+	disableModelInvocation?: boolean;
+	fileCount: number;
+	content?: string;
 }
 
 export interface AgentInfo {
 	name: string;
 	path: string;
 	content: string;
+	description?: string;
+	model?: string;
+	tools?: string[];
+	color?: string;
+}
+
+// ─── Memory (CLAUDE.md files) ────────────────────────────────
+
+export interface MemoryFile {
+	label: string;
+	path: string;
+	content: string;
+	lineCount: number;
+	scope: 'global' | 'project' | 'child';
 }
 
 // ─── Settings (settings.json) ─────────────────────────────────
