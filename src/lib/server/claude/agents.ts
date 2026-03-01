@@ -1,19 +1,20 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { AgentInfo } from '../types.js';
+import type { AgentInfo } from '../../data/types.js';
 
-const AGENTS_DIR = join(homedir(), '.claude', 'agents');
+const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
-export async function readAgents(): Promise<AgentInfo[]> {
+export async function readAgents(claudeDir = DEFAULT_CLAUDE_DIR): Promise<AgentInfo[]> {
+	const agentsDir = join(claudeDir, 'agents');
 	try {
-		const entries = await readdir(AGENTS_DIR, { withFileTypes: true });
+		const entries = await readdir(agentsDir, { withFileTypes: true });
 		const agents: AgentInfo[] = [];
 
 		for (const entry of entries) {
 			if (!entry.isFile()) continue;
 
-			const fullPath = join(AGENTS_DIR, entry.name);
+			const fullPath = join(agentsDir, entry.name);
 
 			try {
 				const content = await readFile(fullPath, 'utf-8');

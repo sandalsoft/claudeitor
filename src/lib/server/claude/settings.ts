@@ -1,10 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { SettingsData } from '../types.js';
+import type { SettingsData } from '../../data/types.js';
 
-const CLAUDE_DIR = join(homedir(), '.claude');
-const SETTINGS_FILE = join(CLAUDE_DIR, 'settings.json');
+const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
 const EMPTY_SETTINGS: SettingsData = {
 	env: {},
@@ -13,9 +12,9 @@ const EMPTY_SETTINGS: SettingsData = {
 	enabledPlugins: {}
 };
 
-export async function readSettings(): Promise<SettingsData> {
+export async function readSettings(claudeDir = DEFAULT_CLAUDE_DIR): Promise<SettingsData> {
 	try {
-		const raw = await readFile(SETTINGS_FILE, 'utf-8');
+		const raw = await readFile(join(claudeDir, 'settings.json'), 'utf-8');
 		return JSON.parse(raw) as SettingsData;
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {

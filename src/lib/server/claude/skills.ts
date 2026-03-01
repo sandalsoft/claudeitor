@@ -1,19 +1,20 @@
 import { readdir, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { SkillInfo } from '../types.js';
+import type { SkillInfo } from '../../data/types.js';
 
-const SKILLS_DIR = join(homedir(), '.claude', 'skills');
+const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
-export async function readSkills(): Promise<SkillInfo[]> {
+export async function readSkills(claudeDir = DEFAULT_CLAUDE_DIR): Promise<SkillInfo[]> {
+	const skillsDir = join(claudeDir, 'skills');
 	try {
-		const entries = await readdir(SKILLS_DIR, { withFileTypes: true });
+		const entries = await readdir(skillsDir, { withFileTypes: true });
 		const skills: SkillInfo[] = [];
 
 		for (const entry of entries) {
 			if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
 
-			const fullPath = join(SKILLS_DIR, entry.name);
+			const fullPath = join(skillsDir, entry.name);
 			let isSymlink = false;
 
 			try {

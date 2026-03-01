@@ -1,14 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { SessionEntry } from '../types.js';
+import type { SessionEntry } from '../../data/types.js';
 
-const CLAUDE_DIR = join(homedir(), '.claude');
-const HISTORY_FILE = join(CLAUDE_DIR, 'history.jsonl');
+const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
-export async function readSessionHistory(): Promise<SessionEntry[]> {
+export async function readSessionHistory(claudeDir = DEFAULT_CLAUDE_DIR): Promise<SessionEntry[]> {
 	try {
-		const raw = await readFile(HISTORY_FILE, 'utf-8');
+		const raw = await readFile(join(claudeDir, 'history.jsonl'), 'utf-8');
 		const entries: SessionEntry[] = [];
 
 		for (const line of raw.split('\n')) {

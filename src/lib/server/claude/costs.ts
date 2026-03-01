@@ -1,11 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { CostCache, PricingData } from '../types.js';
+import type { CostCache, PricingData } from '../../data/types.js';
 
-const CLAUDE_DIR = join(homedir(), '.claude');
-const COST_FILE = join(CLAUDE_DIR, 'readout-cost-cache.json');
-const PRICING_FILE = join(CLAUDE_DIR, 'readout-pricing.json');
+const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
 const EMPTY_COST_CACHE: CostCache = {
 	version: 0,
@@ -19,9 +17,9 @@ const EMPTY_PRICING: PricingData = {
 	models: {}
 };
 
-export async function readCostCache(): Promise<CostCache> {
+export async function readCostCache(claudeDir = DEFAULT_CLAUDE_DIR): Promise<CostCache> {
 	try {
-		const raw = await readFile(COST_FILE, 'utf-8');
+		const raw = await readFile(join(claudeDir, 'readout-cost-cache.json'), 'utf-8');
 		return JSON.parse(raw) as CostCache;
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -32,9 +30,9 @@ export async function readCostCache(): Promise<CostCache> {
 	}
 }
 
-export async function readPricing(): Promise<PricingData> {
+export async function readPricing(claudeDir = DEFAULT_CLAUDE_DIR): Promise<PricingData> {
 	try {
-		const raw = await readFile(PRICING_FILE, 'utf-8');
+		const raw = await readFile(join(claudeDir, 'readout-pricing.json'), 'utf-8');
 		return JSON.parse(raw) as PricingData;
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {

@@ -1,10 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { StatsCache } from '../types.js';
+import type { StatsCache } from '../../data/types.js';
 
-const CLAUDE_DIR = join(homedir(), '.claude');
-const STATS_FILE = join(CLAUDE_DIR, 'stats-cache.json');
+const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
 const EMPTY_STATS: StatsCache = {
 	version: 0,
@@ -20,11 +19,10 @@ const EMPTY_STATS: StatsCache = {
 	totalSpeculationTimeSavedMs: 0
 };
 
-export async function readStatsCache(): Promise<StatsCache> {
+export async function readStatsCache(claudeDir = DEFAULT_CLAUDE_DIR): Promise<StatsCache> {
 	try {
-		const raw = await readFile(STATS_FILE, 'utf-8');
-		const data = JSON.parse(raw) as StatsCache;
-		return data;
+		const raw = await readFile(join(claudeDir, 'stats-cache.json'), 'utf-8');
+		return JSON.parse(raw) as StatsCache;
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 			return EMPTY_STATS;
