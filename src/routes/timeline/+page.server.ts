@@ -16,55 +16,19 @@ export interface TimelineEvent {
 
 const PAGE_SIZE = 30;
 
+// Default window: last 30 days (matches git commit scan window).
+// This caps the amount of session data materialized in memory.
+const DEFAULT_WINDOW_DAYS = 30;
+
 export const load: PageServerLoad = async ({ url }) => {
 	const config = await readConfig();
 
-	const [gitResult, sessions] = await Promise.all([
+	const [gitResult, allSessions] = await Promise.all([
 		scanRepos(config.repoDirs),
 		readSessionHistory(config.claudeDir)
 	]);
 
-	// Build unified event list
-	const events: TimelineEvent[] = [];
-
-	// Add commits from all repos
-	for (const repo of gitResult.repos) {
-		for (const commit of repo.commits) {
-			events.push({
-				id: `commit-${commit.hash}`,
-				type: 'commit',
-				timestamp: new Date(commit.date).getTime(),
-				date: commit.date,
-				title: commit.subject,
-				detail: commit.authorName,
-				repo: repo.name,
-				meta: {
-					hash: commit.hash.slice(0, 7),
-					branch: repo.branch,
-					email: commit.authorEmail
-				}
-			});
-		}
-	}
-
-	// Add sessions
-	for (const session of sessions) {
-		const projectName = session.project
-			? session.project.split('/').pop() ?? session.project
-			: 'Unknown project';
-
-		events.push({
-			id: `session-${session.timestamp}-${session.sessionId ?? ''}`,
-			type: 'session',
-			timestamp: session.timestamp,
-			date: new Date(session.timestamp).toISOString(),
-			title: session.display.slice(0, 120),
-			detail: projectName,
-			repo: projectName
-		});
-	}
-
-	// Filters from query params
+	// Parse filters up front so we can apply them during construction
 	const repoFilter = url.searchParams.get('repo') ?? '';
 	const typeFilter = url.searchParams.get('type') ?? '';
 	const dateFrom = url.searchParams.get('from') ?? '';
@@ -72,46 +36,85 @@ export const load: PageServerLoad = async ({ url }) => {
 	const pageParam = parseInt(url.searchParams.get('page') ?? '1', 10);
 	const currentPage = Math.max(1, isNaN(pageParam) ? 1 : pageParam);
 
-	// Apply filters
-	let filtered = events;
+	// Compute time bounds: use dateFrom/dateTo if provided, otherwise 30-day window
+	const now = Date.now();
+	const windowStart = dateFrom
+		? new Date(dateFrom + 'T00:00:00').getTime()
+		: now - DEFAULT_WINDOW_DAYS * 86_400_000;
+	const windowEnd = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : now;
 
-	if (repoFilter) {
-		filtered = filtered.filter(
-			(e) => e.repo?.toLowerCase().includes(repoFilter.toLowerCase())
-		);
-	}
+	const events: TimelineEvent[] = [];
+	const repoNameSet = new Set<string>();
 
-	if (typeFilter === 'commit' || typeFilter === 'session') {
-		filtered = filtered.filter((e) => e.type === typeFilter);
-	}
+	// Add commits (already bounded to last 30 days by scanner)
+	const includeCommits = typeFilter !== 'session';
+	if (includeCommits) {
+		for (const repo of gitResult.repos) {
+			repoNameSet.add(repo.name);
+			if (repoFilter && !repo.name.toLowerCase().includes(repoFilter.toLowerCase())) {
+				continue;
+			}
+			for (const commit of repo.commits) {
+				const commitTime = new Date(commit.date).getTime();
+				if (commitTime < windowStart || commitTime > windowEnd) continue;
 
-	if (dateFrom) {
-		const fromTs = new Date(dateFrom + 'T00:00:00').getTime();
-		if (!isNaN(fromTs)) {
-			filtered = filtered.filter((e) => e.timestamp >= fromTs);
+				events.push({
+					id: `commit-${commit.hash}`,
+					type: 'commit',
+					timestamp: commitTime,
+					date: commit.date,
+					title: commit.subject,
+					detail: commit.authorName,
+					repo: repo.name,
+					meta: {
+						hash: commit.hash.slice(0, 7),
+						branch: repo.branch,
+						email: commit.authorEmail
+					}
+				});
+			}
 		}
 	}
 
-	if (dateTo) {
-		const toTs = new Date(dateTo + 'T23:59:59').getTime();
-		if (!isNaN(toTs)) {
-			filtered = filtered.filter((e) => e.timestamp <= toTs);
+	// Add sessions -- bounded to time window and filtered early
+	const includeSessions = typeFilter !== 'commit';
+	if (includeSessions) {
+		for (const session of allSessions) {
+			if (session.timestamp < windowStart || session.timestamp > windowEnd) continue;
+
+			const projectName = session.project
+				? session.project.split('/').pop() ?? session.project
+				: 'Unknown project';
+
+			repoNameSet.add(projectName);
+			if (repoFilter && !projectName.toLowerCase().includes(repoFilter.toLowerCase())) {
+				continue;
+			}
+
+			events.push({
+				id: `session-${session.timestamp}-${session.sessionId ?? ''}`,
+				type: 'session',
+				timestamp: session.timestamp,
+				date: new Date(session.timestamp).toISOString(),
+				title: session.display.slice(0, 120),
+				detail: projectName,
+				repo: projectName
+			});
 		}
 	}
 
 	// Sort newest first
-	filtered.sort((a, b) => b.timestamp - a.timestamp);
+	events.sort((a, b) => b.timestamp - a.timestamp);
 
 	// Paginate
-	const totalCount = filtered.length;
+	const totalCount = events.length;
 	const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 	const safePage = Math.min(currentPage, totalPages);
 	const startIdx = (safePage - 1) * PAGE_SIZE;
-	const paginated = filtered.slice(startIdx, startIdx + PAGE_SIZE);
+	const paginated = events.slice(startIdx, startIdx + PAGE_SIZE);
 
-	// Unique repo names for the filter dropdown
-	const repoNames = [...new Set(events.map((e) => e.repo).filter(Boolean))] as string[];
-	repoNames.sort((a, b) => a.localeCompare(b));
+	// Unique repo names for the filter dropdown (from all data, not just filtered)
+	const repoNames = [...repoNameSet].sort((a, b) => a.localeCompare(b));
 
 	return {
 		events: paginated,

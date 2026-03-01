@@ -24,7 +24,7 @@ async function loadActivityEvents(
 	repoDirs: string[]
 ): Promise<ActivityEvent[]> {
 	const now = Date.now();
-	if (now - cacheTimestamp < CACHE_TTL_MS && cachedEvents.length > 0) {
+	if (cacheTimestamp > 0 && now - cacheTimestamp < CACHE_TTL_MS) {
 		return cachedEvents;
 	}
 

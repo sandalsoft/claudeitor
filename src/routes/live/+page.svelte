@@ -8,22 +8,25 @@
 	// Polling-based refresh (NOT SSE -- per spec).
 	// Uses recursive setTimeout so the next poll only starts after the
 	// previous invalidation completes, preventing overlap on slow scans.
+	// The timer handle is tracked so cleanup cancels both the initial and
+	// any subsequent scheduled timer.
 	$effect(() => {
 		let cancelled = false;
+		let nextTimer: ReturnType<typeof setTimeout> | undefined;
 
 		async function poll() {
 			if (cancelled) return;
 			await invalidateAll();
 			if (!cancelled) {
-				setTimeout(poll, data.refreshInterval ?? 30_000);
+				nextTimer = setTimeout(poll, data.refreshInterval ?? 30_000);
 			}
 		}
 
-		const timer = setTimeout(poll, data.refreshInterval ?? 30_000);
+		nextTimer = setTimeout(poll, data.refreshInterval ?? 30_000);
 
 		return () => {
 			cancelled = true;
-			clearTimeout(timer);
+			if (nextTimer !== undefined) clearTimeout(nextTimer);
 		};
 	});
 

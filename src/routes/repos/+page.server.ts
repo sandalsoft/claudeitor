@@ -55,21 +55,27 @@ export const load: PageServerLoad = async ({ url }) => {
 	const sortKey: SortKey = sortParam && validSortKeys.includes(sortParam) ? sortParam : 'activity';
 	const sortDir = url.searchParams.get('dir') === 'asc' ? 'asc' : 'desc';
 
-	const healthOrder: Record<HealthStatus, number> = { red: 0, yellow: 1, green: 2 };
+	// Health severity: higher = worse. Default desc = worst first.
+	const healthSeverity: Record<HealthStatus, number> = { green: 0, yellow: 1, red: 2 };
 
 	repos.sort((a, b) => {
-		const dir = sortDir === 'asc' ? 1 : -1;
 		switch (sortKey) {
 			case 'name':
-				return dir * a.name.localeCompare(b.name);
+				// asc = A-Z, desc = Z-A
+				return sortDir === 'asc'
+					? a.name.localeCompare(b.name)
+					: b.name.localeCompare(a.name);
 			case 'health':
-				return dir * (healthOrder[a.health] - healthOrder[b.health]);
+				// desc = worst (red) first, asc = cleanest (green) first
+				return sortDir === 'asc'
+					? healthSeverity[a.health] - healthSeverity[b.health]
+					: healthSeverity[b.health] - healthSeverity[a.health];
 			case 'activity':
 			default: {
-				// Sort by last commit date (most recent first by default)
+				// desc = most recent first (default), asc = oldest first
 				const aTime = a.lastCommitDate ? new Date(a.lastCommitDate).getTime() : 0;
 				const bTime = b.lastCommitDate ? new Date(b.lastCommitDate).getTime() : 0;
-				return dir * (bTime - aTime);
+				return sortDir === 'asc' ? aTime - bTime : bTime - aTime;
 			}
 		}
 	});
