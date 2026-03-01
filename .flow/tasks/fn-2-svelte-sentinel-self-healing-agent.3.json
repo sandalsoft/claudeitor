@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-01T16:59:24.523723Z",
+  "depends_on": [
+    "fn-2-svelte-sentinel-self-healing-agent.1"
+  ],
+  "epic": "fn-2-svelte-sentinel-self-healing-agent",
+  "id": "fn-2-svelte-sentinel-self-healing-agent.3",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-2-svelte-sentinel-self-healing-agent.3.md",
+  "status": "todo",
+  "title": "Replace all console.warn/log/error with structured logger",
+  "updated_at": "2026-03-01T17:26:45.197238Z"
+}

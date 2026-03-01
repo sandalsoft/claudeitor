@@ -10,5 +10,16 @@ export default defineConfig({
 	},
 	preview: {
 		host: '127.0.0.1'
+	},
+	ssr: {
+		noExternal: [
+			'@opentelemetry/api',
+			'@opentelemetry/sdk-trace-node',
+			'@opentelemetry/sdk-trace-base',
+			'@opentelemetry/context-async-hooks',
+			'@opentelemetry/resources',
+			'@opentelemetry/core',
+			'@opentelemetry/semantic-conventions'
+		]
 	}
 });

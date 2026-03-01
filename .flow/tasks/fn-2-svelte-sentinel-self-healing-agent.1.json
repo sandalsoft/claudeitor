@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-01T16:59:24.213073Z",
+  "depends_on": [],
+  "epic": "fn-2-svelte-sentinel-self-healing-agent",
+  "id": "fn-2-svelte-sentinel-self-healing-agent.1",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-2-svelte-sentinel-self-healing-agent.1.md",
+  "status": "todo",
+  "title": "OTel foundation: TracerProvider, JSONL exporter, structured logger",
+  "updated_at": "2026-03-01T17:31:49.161898Z"
+}

@@ -36,3 +36,6 @@ build/
 # Config with secrets
 claudeitor.config.json
 !claudeitor.config.example.json
+
+# Telemetry data
+.claudeitor/
