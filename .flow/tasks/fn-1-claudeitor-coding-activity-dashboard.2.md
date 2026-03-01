@@ -4,7 +4,7 @@
 Build the core data layer that reads and parses all Claude Code data from ~/.claude/. This includes TypeScript type definitions for all data sources, reader functions for each cache/config file, and a robust model ID mapping layer that converts between full model IDs and pricing short names.
 
 **Size:** M
-**Files:** src/lib/data/types.ts, src/lib/data/claude/stats.ts, src/lib/data/claude/costs.ts, src/lib/data/claude/sessions.ts, src/lib/data/claude/skills.ts, src/lib/data/claude/agents.ts, src/lib/data/claude/settings.ts, src/lib/data/claude/model-mapping.ts
+**Files:** src/lib/data/types.ts, src/lib/server/claude/stats.ts, src/lib/server/claude/costs.ts, src/lib/server/claude/sessions.ts, src/lib/server/claude/skills.ts, src/lib/server/claude/agents.ts, src/lib/server/claude/settings.ts, src/lib/server/claude/model-mapping.ts
 
 ## Approach
 - Define TypeScript interfaces matching discovered schemas:
@@ -64,8 +64,8 @@ Build the core data layer that reads and parses all Claude Code data from ~/.cla
 - [x] All readers return typed defaults when files are missing (no throws)
 - [x] All readers handle malformed JSON gracefully (try/catch, log warning)
 ## Done summary
-Built complete TypeScript data layer for reading ~/.claude/ data sources. Created type definitions matching real on-disk schemas (types.ts), 7 reader modules (stats, costs, sessions, skills, agents, settings, model-mapping), and a multi-strategy model ID mapper. All readers handle missing files and malformed JSON gracefully with typed defaults. 22 vitest tests pass covering model mapping edge cases and reader integration against real data.
+Built complete TypeScript data layer for reading ~/.claude/ data sources. Types in src/lib/data/types.ts (shared), 7 server-only reader modules in src/lib/server/claude/ (SvelteKit server boundary enforced). Multi-strategy model ID mapper with strict family+version matching prevents cross-version mismatches. All readers accept claudeDir parameter for testability. 29 fixture-based vitest tests pass (13 model-mapping + 16 reader tests using temp directories).
 ## Evidence
-- Commits: cd77583
-- Tests: 22 passing
+- Commits: cd77583, 7dcdcfa
+- Tests: 29 passing (13 model-mapping + 16 reader fixture tests)
 - PRs:
