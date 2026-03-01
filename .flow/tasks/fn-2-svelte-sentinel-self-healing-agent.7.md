@@ -60,9 +60,8 @@ Integration task: wire Claudeitor's telemetry output to svelte-sentinel's input,
 - [ ] Both repos build successfully
 
 ## Done summary
-TBD
-
+Added telemetry config fields (enabled, path, rotationSizeMB) to Claudeitor config reader with backward-compatible defaults. In svelte-sentinel: refined SKILL.md error-fix and warning-fix templates with codebase context, CLAUDE.md references, and verification instructions; created .sentinelignore.example with documented RegExp patterns for known noisy warnings; added comprehensive README.md with prerequisites, CLI usage, all config options, and safety mechanisms; added 3 end-to-end integration tests verifying the full pipeline in dry-run mode (error detection, multi-issue detection, healthy record filtering). Both repos pass all checks: Claudeitor 0 errors / 97 tests, svelte-sentinel 0 errors / 183 tests.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: d659311e31f7aa6c66845ab5c2f8b6c936f45e77, 2fdd137135f10c989a1772e3d12eb9ca23169d1b
+- Tests: pnpm check (0 errors), pnpm test (97 passed), bun run check (0 errors), bun test (183 passed, including 3 new e2e tests)
 - PRs:
