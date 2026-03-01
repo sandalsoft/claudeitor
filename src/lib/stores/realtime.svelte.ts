@@ -5,9 +5,9 @@
 // Reconnection strategy: always tear down and create a fresh Source.
 // We set cache: false so sveltekit-sse does not reuse stale connections.
 //
-// Ordering: each event carries a server-side timestamp captured at
-// file-change detection time. We only apply updates when the timestamp
-// is newer than the last applied event for that type.
+// Ordering: each event carries a monotonic `seq` number per event type.
+// We only apply updates when seq is strictly greater than the last applied,
+// avoiding both timestamp ties and stale/out-of-order delivery.
 
 import { source } from 'sveltekit-sse';
 import type { StatsCache, CostCache, SessionEntry } from '../data/types.js';
@@ -28,6 +28,7 @@ interface SSEPayload {
 	type: string;
 	data: unknown;
 	timestamp: number;
+	seq: number;
 }
 
 function createRealtimeStore() {
@@ -37,10 +38,10 @@ function createRealtimeStore() {
 	let status = $state<ConnectionStatus>('disconnected');
 	let lastEventAt = $state<number | null>(null);
 
-	// Per-type timestamps for ordering guard
-	let lastStatsTs = 0;
-	let lastCostsTs = 0;
-	let lastSessionsTs = 0;
+	// Per-type sequence numbers for ordering guard
+	let lastStatsSeq = 0;
+	let lastCostsSeq = 0;
+	let lastSessionsSeq = 0;
 
 	let connection: ReturnType<typeof source> | null = null;
 	let storeUnsubscribers: Array<() => void> = [];
@@ -59,7 +60,6 @@ function createRealtimeStore() {
 		}
 		storeUnsubscribers = [];
 
-		// Capture and null out before closing to prevent re-entrancy
 		const conn = connection;
 		connection = null;
 		if (conn) {
@@ -69,6 +69,14 @@ function createRealtimeStore() {
 
 	function connect() {
 		if (connection) return;
+
+		// Clear any pending reconnect timer to prevent backoff drift:
+		// if connect() is called manually while a timer is pending,
+		// the timer would fire, no-op, but still increase backoffMs.
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
 
 		intentionalClose = false;
 		status = 'connecting';
@@ -100,7 +108,6 @@ function createRealtimeStore() {
 				status = 'error';
 				scheduleReconnect();
 			},
-			// Disable connection caching -- we always create fresh Sources
 			cache: false,
 			options: {
 				method: 'POST'
@@ -108,17 +115,17 @@ function createRealtimeStore() {
 		});
 
 		// Subscribe to each event type.
-		// The server emits full SSEEvent payloads (with type, data, timestamp).
+		// The server emits full SSEEvent payloads (with type, data, timestamp, seq).
 		const statsStore = connection.select('stats-update').json<SSEPayload>();
 		const costsStore = connection.select('cost-update').json<SSEPayload>();
 		const sessionsStore = connection.select('session-update').json<SSEPayload>();
 
 		// Track unsubscribe functions so we can clean up on disconnect.
-		// Ordering guard: only apply if timestamp is newer than last applied.
+		// Ordering guard: only apply if seq is strictly greater than last applied.
 		storeUnsubscribers.push(
 			statsStore.subscribe((value) => {
-				if (value != null && value.timestamp > lastStatsTs) {
-					lastStatsTs = value.timestamp;
+				if (value != null && value.seq > lastStatsSeq) {
+					lastStatsSeq = value.seq;
 					stats = value.data as StatsCache;
 					lastEventAt = value.timestamp;
 				}
@@ -127,8 +134,8 @@ function createRealtimeStore() {
 
 		storeUnsubscribers.push(
 			costsStore.subscribe((value) => {
-				if (value != null && value.timestamp > lastCostsTs) {
-					lastCostsTs = value.timestamp;
+				if (value != null && value.seq > lastCostsSeq) {
+					lastCostsSeq = value.seq;
 					costs = value.data as CostCache;
 					lastEventAt = value.timestamp;
 				}
@@ -137,8 +144,8 @@ function createRealtimeStore() {
 
 		storeUnsubscribers.push(
 			sessionsStore.subscribe((value) => {
-				if (value != null && value.timestamp > lastSessionsTs) {
-					lastSessionsTs = value.timestamp;
+				if (value != null && value.seq > lastSessionsSeq) {
+					lastSessionsSeq = value.seq;
 					sessions = value.data as SessionEntry[];
 					lastEventAt = value.timestamp;
 				}
@@ -151,14 +158,16 @@ function createRealtimeStore() {
 			clearTimeout(reconnectTimer);
 		}
 
+		const delay = backoffMs;
+		// Increase backoff now so it's ready for the next failure
+		backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
+
 		reconnectTimer = setTimeout(() => {
 			reconnectTimer = null;
 			if (intentionalClose) return;
-
+			// connect() will no-op if connection already exists
 			connect();
-
-			backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
-		}, backoffMs);
+		}, delay);
 	}
 
 	function disconnect() {

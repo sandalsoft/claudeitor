@@ -6,6 +6,8 @@
 // Stale-read protection: a per-file generation counter ensures that
 // when rapid file changes overlap async reads, only the latest result
 // is emitted -- earlier (stale) reads are silently dropped.
+// The generation counter is included in SSE events as a monotonic
+// sequence number so clients can order events without timestamp ties.
 
 import { watch, type FSWatcher } from 'chokidar';
 import { basename, join } from 'node:path';
@@ -23,6 +25,8 @@ export interface SSEEvent {
 	type: SSEEventType;
 	data: StatsCache | CostCache | SessionEntry[];
 	timestamp: number;
+	/** Monotonically increasing per event type. Used for ordering tiebreaker. */
+	seq: number;
 }
 
 export type WatcherListener = (event: SSEEvent) => void;
@@ -57,7 +61,6 @@ interface WatcherInstance {
 }
 
 // Idle timeout before destroying watcher after last client disconnects.
-// Gives time for page reloads without tearing down/recreating the watcher.
 const IDLE_TIMEOUT_MS = 30_000;
 
 // globalThis singleton to survive HMR reloads
@@ -96,6 +99,10 @@ async function readFileData(
 	}
 }
 
+function formatError(err: unknown): string {
+	return err instanceof Error ? err.message : String(err);
+}
+
 function emitFileChange(instance: WatcherInstance, changedPath: string): void {
 	const file = matchWatchedFile(changedPath);
 	if (!file) return;
@@ -116,31 +123,31 @@ function emitFileChange(instance: WatcherInstance, changedPath: string): void {
 			const event: SSEEvent = {
 				type: FILE_TO_EVENT[file],
 				data,
-				timestamp
+				timestamp,
+				seq: generation
 			};
 
 			for (const listener of instance.listeners) {
 				try {
 					listener(event);
 				} catch (err) {
-					console.warn('[watcher] Listener error:', (err as Error).message);
+					console.warn('[watcher] Listener error:', formatError(err));
 				}
 			}
 		})
 		.catch((err: unknown) => {
-			console.warn(
-				`[watcher] Failed to read ${file} after change:`,
-				err instanceof Error ? err.message : String(err)
-			);
+			console.warn(`[watcher] Failed to read ${file} after change:`, formatError(err));
 		});
 }
 
 function createWatcherInstance(claudeDir: string): WatcherInstance {
-	const watchPaths = WATCHED_FILES.map((f) => join(claudeDir, f));
-
-	const fsWatcher = watch(watchPaths, {
+	// Watch the directory and filter events by basename. This is more
+	// robust than watching individual file paths because atomic writes
+	// (write temp + rename) and file recreation are handled consistently.
+	const fsWatcher = watch(claudeDir, {
 		persistent: true,
 		ignoreInitial: true,
+		depth: 0,
 		awaitWriteFinish: {
 			stabilityThreshold: 500,
 			pollInterval: 100
@@ -158,12 +165,13 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 	// Handle both 'change' and 'add' events. Atomic write patterns
 	// (write temp + rename) surface as 'add' rather than 'change',
 	// and files created after startup also emit 'add'.
+	// matchWatchedFile() filters to only our target files.
 	const handleFileEvent = (changedPath: string) => emitFileChange(instance, changedPath);
 	fsWatcher.on('change', handleFileEvent);
 	fsWatcher.on('add', handleFileEvent);
 
 	fsWatcher.on('error', (err: unknown) => {
-		console.warn('[watcher] Chokidar error:', err instanceof Error ? err.message : String(err));
+		console.warn('[watcher] Chokidar error:', formatError(err));
 	});
 
 	console.log('[watcher] Created singleton file watcher for', claudeDir);
@@ -263,7 +271,7 @@ export async function destroyWatcher(): Promise<void> {
 		await instance.watcher.close();
 		console.log('[watcher] Destroyed singleton file watcher');
 	} catch (err) {
-		console.warn('[watcher] Error closing watcher:', (err as Error).message);
+		console.warn('[watcher] Error closing watcher:', formatError(err));
 	}
 
 	globalThis.__claudeitorWatcher = undefined;
