@@ -74,7 +74,26 @@
 			'<path d="M7 17 17 7"/><path d="M7 7h10v10"/>',
 		folder:
 			'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>',
-		x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
+		x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+		search:
+			'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+		'chevron-up': '<path d="m18 15-6-6-6 6"/>',
+		'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+		play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+		pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+		'skip-back':
+			'<polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/>',
+		'skip-forward':
+			'<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>',
+		user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+		'file-text':
+			'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+		hash: '<line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/>',
+		loader:
+			'<path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/>',
+		'message-square':
+			'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+		code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'
 	};
 </script>
 
