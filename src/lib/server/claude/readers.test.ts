@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -120,11 +120,33 @@ describe('readStatsCache', () => {
 		expect(stats.dailyActivity[0].messageCount).toBe(100);
 	});
 
+	it('reads all fields from valid fixture', async () => {
+		const stats = await readStatsCache(fixtureDir);
+		expect(stats.lastComputedDate).toBe('2026-02-28');
+		expect(stats.totalMessages).toBe(1000);
+		expect(stats.longestSession).toBe(120);
+		expect(stats.firstSessionDate).toBe('2026-01-01');
+		expect(stats.hourCounts['10']).toBe(15);
+		expect(stats.hourCounts['14']).toBe(20);
+		expect(stats.modelUsage['claude-opus-4-5-20251101'].inputTokens).toBe(1000);
+		expect(stats.dailyModelTokens).toHaveLength(1);
+	});
+
 	it('returns empty defaults for missing directory', async () => {
 		const stats = await readStatsCache('/nonexistent/path');
 		expect(stats.version).toBe(0);
 		expect(stats.dailyActivity).toEqual([]);
 		expect(stats.totalSessions).toBe(0);
+	});
+
+	it('returns empty defaults for malformed JSON', async () => {
+		const malformedDir = await mkdtemp(join(tmpdir(), 'claudeitor-malformed-stats-'));
+		await writeFile(join(malformedDir, 'stats-cache.json'), '{invalid json content!!!}');
+		const stats = await readStatsCache(malformedDir);
+		expect(stats.version).toBe(0);
+		expect(stats.dailyActivity).toEqual([]);
+		expect(stats.totalSessions).toBe(0);
+		await rm(malformedDir, { recursive: true, force: true });
 	});
 });
 
@@ -137,9 +159,40 @@ describe('readCostCache', () => {
 		expect(dayData['claude-opus-4-5-20251101'].input).toBe(50);
 	});
 
+	it('reads all token fields from valid fixture', async () => {
+		const costs = await readCostCache(fixtureDir);
+		const dayData = costs.days['2026-02-28']['claude-opus-4-5-20251101'];
+		expect(dayData.output).toBe(100);
+		expect(dayData.cacheRead).toBe(1000);
+		expect(dayData.cacheWrite).toBe(200);
+		expect(costs.lastFullScan).toBe('2026-02-28');
+	});
+
 	it('returns empty defaults for missing directory', async () => {
 		const costs = await readCostCache('/nonexistent/path');
 		expect(costs.days).toEqual({});
+	});
+
+	it('handles empty days object', async () => {
+		const emptyDaysDir = await mkdtemp(join(tmpdir(), 'claudeitor-empty-days-'));
+		await writeFile(
+			join(emptyDaysDir, 'readout-cost-cache.json'),
+			JSON.stringify({ version: 1, lastFullScan: '2026-02-28', days: {} })
+		);
+		const costs = await readCostCache(emptyDaysDir);
+		expect(costs.version).toBe(1);
+		expect(costs.days).toEqual({});
+		expect(Object.keys(costs.days)).toHaveLength(0);
+		await rm(emptyDaysDir, { recursive: true, force: true });
+	});
+
+	it('returns empty defaults for malformed JSON', async () => {
+		const malformedDir = await mkdtemp(join(tmpdir(), 'claudeitor-malformed-costs-'));
+		await writeFile(join(malformedDir, 'readout-cost-cache.json'), 'not json at all');
+		const costs = await readCostCache(malformedDir);
+		expect(costs.days).toEqual({});
+		expect(costs.version).toBe(0);
+		await rm(malformedDir, { recursive: true, force: true });
 	});
 });
 
@@ -150,9 +203,27 @@ describe('readPricing', () => {
 		expect(pricing.models['opus-4-5'].input).toBe(5.0);
 	});
 
+	it('reads all pricing fields from valid fixture', async () => {
+		const pricing = await readPricing(fixtureDir);
+		expect(pricing.source).toBe('test');
+		const opus = pricing.models['opus-4-5'];
+		expect(opus.output).toBe(25.0);
+		expect(opus.cacheRead).toBe(0.5);
+		expect(opus.cacheWrite).toBe(6.25);
+	});
+
 	it('returns empty defaults for missing directory', async () => {
 		const pricing = await readPricing('/nonexistent/path');
 		expect(pricing.models).toEqual({});
+	});
+
+	it('returns empty defaults for malformed JSON', async () => {
+		const malformedDir = await mkdtemp(join(tmpdir(), 'claudeitor-malformed-pricing-'));
+		await writeFile(join(malformedDir, 'readout-pricing.json'), '<<<broken>>>');
+		const pricing = await readPricing(malformedDir);
+		expect(pricing.models).toEqual({});
+		expect(pricing.updated).toBe('');
+		await rm(malformedDir, { recursive: true, force: true });
 	});
 });
 
@@ -164,9 +235,35 @@ describe('readSessionHistory', () => {
 		expect(sessions[1].display).toBe('test command 2');
 	});
 
+	it('reads all session fields from valid fixture', async () => {
+		const sessions = await readSessionHistory(fixtureDir);
+		expect(sessions[0].timestamp).toBe(1700000000000);
+		expect(sessions[0].project).toBe('/tmp/test');
+		expect(sessions[1].timestamp).toBe(1700000001000);
+	});
+
 	it('returns empty array for missing file', async () => {
 		const sessions = await readSessionHistory('/nonexistent/path');
 		expect(sessions).toEqual([]);
+	});
+
+	it('returns empty array for empty file', async () => {
+		const emptyDir = await mkdtemp(join(tmpdir(), 'claudeitor-empty-sessions-'));
+		await writeFile(join(emptyDir, 'history.jsonl'), '');
+		const sessions = await readSessionHistory(emptyDir);
+		expect(sessions).toEqual([]);
+		await rm(emptyDir, { recursive: true, force: true });
+	});
+
+	it('returns empty array when all lines are malformed', async () => {
+		const badDir = await mkdtemp(join(tmpdir(), 'claudeitor-bad-sessions-'));
+		await writeFile(
+			join(badDir, 'history.jsonl'),
+			['not json', 'also not json', '{broken}'].join('\n')
+		);
+		const sessions = await readSessionHistory(badDir);
+		expect(sessions).toEqual([]);
+		await rm(badDir, { recursive: true, force: true });
 	});
 });
 
@@ -220,9 +317,24 @@ describe('readSettings', () => {
 		expect(settings.enabledPlugins['test-plugin']).toBe(true);
 	});
 
+	it('reads all settings fields from valid fixture', async () => {
+		const settings = await readSettings(fixtureDir);
+		expect(settings.env).toEqual({ TEST: '1' });
+		expect(settings.hooks).toEqual({ PreToolUse: [] });
+	});
+
 	it('returns empty defaults for missing file', async () => {
 		const settings = await readSettings('/nonexistent/path');
 		expect(settings.model).toBe('');
 		expect(settings.enabledPlugins).toEqual({});
+	});
+
+	it('returns empty defaults for malformed JSON', async () => {
+		const malformedDir = await mkdtemp(join(tmpdir(), 'claudeitor-malformed-settings-'));
+		await writeFile(join(malformedDir, 'settings.json'), '{malformed!!!}');
+		const settings = await readSettings(malformedDir);
+		expect(settings.model).toBe('');
+		expect(settings.enabledPlugins).toEqual({});
+		await rm(malformedDir, { recursive: true, force: true });
 	});
 });
