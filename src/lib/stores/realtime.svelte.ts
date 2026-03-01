@@ -3,9 +3,11 @@
 // Implements exponential backoff reconnection on disconnect.
 //
 // Reconnection strategy: always tear down and create a fresh Source.
-// We never use the library's built-in reconnect callback because it
-// reconnects the same underlying connection while our store tracking
-// would be out of sync. Creating a fresh Source keeps state consistent.
+// We set cache: false so sveltekit-sse does not reuse stale connections.
+//
+// Ordering: each event carries a server-side timestamp captured at
+// file-change detection time. We only apply updates when the timestamp
+// is newer than the last applied event for that type.
 
 import { source } from 'sveltekit-sse';
 import type { StatsCache, CostCache, SessionEntry } from '../data/types.js';
@@ -35,6 +37,11 @@ function createRealtimeStore() {
 	let status = $state<ConnectionStatus>('disconnected');
 	let lastEventAt = $state<number | null>(null);
 
+	// Per-type timestamps for ordering guard
+	let lastStatsTs = 0;
+	let lastCostsTs = 0;
+	let lastSessionsTs = 0;
+
 	let connection: ReturnType<typeof source> | null = null;
 	let storeUnsubscribers: Array<() => void> = [];
 	let backoffMs = INITIAL_BACKOFF_MS;
@@ -47,15 +54,12 @@ function createRealtimeStore() {
 	 * prevent infinite recursion when close() triggers the close callback.
 	 */
 	function teardownConnection() {
-		// Unsubscribe from all Svelte readable stores first
 		for (const unsub of storeUnsubscribers) {
 			unsub();
 		}
 		storeUnsubscribers = [];
 
-		// Capture and null out before closing to prevent re-entrancy:
-		// connection.close() triggers the close callback synchronously,
-		// which would call teardownConnection() again without this guard.
+		// Capture and null out before closing to prevent re-entrancy
 		const conn = connection;
 		connection = null;
 		if (conn) {
@@ -75,7 +79,6 @@ function createRealtimeStore() {
 				backoffMs = INITIAL_BACKOFF_MS;
 			},
 			close() {
-				// Tear down everything -- we will reconnect with a fresh Source
 				teardownConnection();
 
 				if (intentionalClose) {
@@ -97,6 +100,8 @@ function createRealtimeStore() {
 				status = 'error';
 				scheduleReconnect();
 			},
+			// Disable connection caching -- we always create fresh Sources
+			cache: false,
 			options: {
 				method: 'POST'
 			}
@@ -108,30 +113,34 @@ function createRealtimeStore() {
 		const costsStore = connection.select('cost-update').json<SSEPayload>();
 		const sessionsStore = connection.select('session-update').json<SSEPayload>();
 
-		// Track unsubscribe functions so we can clean up on disconnect
+		// Track unsubscribe functions so we can clean up on disconnect.
+		// Ordering guard: only apply if timestamp is newer than last applied.
 		storeUnsubscribers.push(
 			statsStore.subscribe((value) => {
-				if (value != null) {
+				if (value != null && value.timestamp > lastStatsTs) {
+					lastStatsTs = value.timestamp;
 					stats = value.data as StatsCache;
-					lastEventAt = value.timestamp ?? Date.now();
+					lastEventAt = value.timestamp;
 				}
 			})
 		);
 
 		storeUnsubscribers.push(
 			costsStore.subscribe((value) => {
-				if (value != null) {
+				if (value != null && value.timestamp > lastCostsTs) {
+					lastCostsTs = value.timestamp;
 					costs = value.data as CostCache;
-					lastEventAt = value.timestamp ?? Date.now();
+					lastEventAt = value.timestamp;
 				}
 			})
 		);
 
 		storeUnsubscribers.push(
 			sessionsStore.subscribe((value) => {
-				if (value != null) {
+				if (value != null && value.timestamp > lastSessionsTs) {
+					lastSessionsTs = value.timestamp;
 					sessions = value.data as SessionEntry[];
-					lastEventAt = value.timestamp ?? Date.now();
+					lastEventAt = value.timestamp;
 				}
 			})
 		);
@@ -146,10 +155,8 @@ function createRealtimeStore() {
 			reconnectTimer = null;
 			if (intentionalClose) return;
 
-			// Always create a fresh connection
 			connect();
 
-			// Exponential backoff with cap
 			backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
 		}, backoffMs);
 	}

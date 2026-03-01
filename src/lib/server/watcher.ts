@@ -2,9 +2,13 @@
 // Uses globalThis to prevent duplicate watchers during HMR reloads.
 // Tracks SSE connections via listeners.size: creates watcher on first
 // connect, destroys when last disconnects (with idle timeout grace period).
+//
+// Stale-read protection: a per-file generation counter ensures that
+// when rapid file changes overlap async reads, only the latest result
+// is emitted -- earlier (stale) reads are silently dropped.
 
 import { watch, type FSWatcher } from 'chokidar';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { homedir } from 'node:os';
 import { readStatsCache } from './claude/stats.js';
 import { readCostCache } from './claude/costs.js';
@@ -33,6 +37,8 @@ const WATCHED_FILES = [
 
 type WatchedFile = (typeof WATCHED_FILES)[number];
 
+const WATCHED_FILE_SET: ReadonlySet<string> = new Set(WATCHED_FILES);
+
 const FILE_TO_EVENT: Record<WatchedFile, SSEEventType> = {
 	'stats-cache.json': 'stats-update',
 	'readout-cost-cache.json': 'cost-update',
@@ -46,6 +52,8 @@ interface WatcherInstance {
 	listeners: Set<WatcherListener>;
 	idleTimer: ReturnType<typeof setTimeout> | null;
 	claudeDir: string;
+	/** Per-file generation counter to drop stale async reads. */
+	fileGeneration: Map<WatchedFile, number>;
 }
 
 // Idle timeout before destroying watcher after last client disconnects.
@@ -60,11 +68,10 @@ declare global {
 	var __claudeitorShutdownRegistered: boolean | undefined;
 }
 
-function getWatchedFilePath(changedPath: string): WatchedFile | null {
-	for (const file of WATCHED_FILES) {
-		if (changedPath.endsWith(file)) {
-			return file;
-		}
+function matchWatchedFile(changedPath: string): WatchedFile | null {
+	const name = basename(changedPath);
+	if (WATCHED_FILE_SET.has(name)) {
+		return name as WatchedFile;
 	}
 	return null;
 }
@@ -90,16 +97,26 @@ async function readFileData(
 }
 
 function emitFileChange(instance: WatcherInstance, changedPath: string): void {
-	const file = getWatchedFilePath(changedPath);
+	const file = matchWatchedFile(changedPath);
 	if (!file) return;
 
-	// Fire-and-forget: read file and notify listeners
+	// Capture timestamp at event detection time (before async read)
+	const timestamp = Date.now();
+
+	// Increment generation for this file to detect stale reads
+	const generation = (instance.fileGeneration.get(file) ?? 0) + 1;
+	instance.fileGeneration.set(file, generation);
+
 	readFileData(file, instance.claudeDir)
 		.then((data) => {
+			// Drop stale reads: if generation has advanced, a newer event
+			// supersedes this one -- emitting would rewind client state
+			if (instance.fileGeneration.get(file) !== generation) return;
+
 			const event: SSEEvent = {
 				type: FILE_TO_EVENT[file],
 				data,
-				timestamp: Date.now()
+				timestamp
 			};
 
 			for (const listener of instance.listeners) {
@@ -134,7 +151,8 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 		watcher: fsWatcher,
 		listeners: new Set(),
 		idleTimer: null,
-		claudeDir
+		claudeDir,
+		fileGeneration: new Map()
 	};
 
 	// Handle both 'change' and 'add' events. Atomic write patterns
@@ -157,8 +175,6 @@ function registerShutdownHooks(): void {
 	globalThis.__claudeitorShutdownRegistered = true;
 
 	const shutdown = () => {
-		// Synchronous-safe: destroyWatcher is async but process may exit before it completes.
-		// Best effort cleanup.
 		const instance = globalThis.__claudeitorWatcher;
 		if (instance) {
 			instance.listeners.clear();
@@ -178,7 +194,6 @@ function registerShutdownHooks(): void {
 function ensureInstance(claudeDir: string): WatcherInstance {
 	const existing = globalThis.__claudeitorWatcher;
 	if (existing) {
-		// Warn if called with a different directory than the active watcher
 		if (existing.claudeDir !== claudeDir) {
 			console.warn(
 				`[watcher] Singleton already watching "${existing.claudeDir}", ignoring request for "${claudeDir}"`
@@ -198,9 +213,6 @@ function ensureInstance(claudeDir: string): WatcherInstance {
  * Subscribe to file change events. Returns an unsubscribe function.
  * Creates the watcher on first subscription, destroys after idle timeout
  * when all subscribers disconnect.
- *
- * Connection tracking uses listeners.size directly (no separate refCount)
- * to avoid divergence between Set membership and counter.
  */
 export function subscribe(
 	listener: WatcherListener,
@@ -208,7 +220,6 @@ export function subscribe(
 ): () => void {
 	const instance = ensureInstance(claudeDir);
 
-	// Cancel any pending idle shutdown
 	if (instance.idleTimer) {
 		clearTimeout(instance.idleTimer);
 		instance.idleTimer = null;
@@ -216,7 +227,6 @@ export function subscribe(
 
 	instance.listeners.add(listener);
 
-	// Guard against double-unsubscribe
 	let unsubscribed = false;
 
 	return () => {
@@ -226,7 +236,6 @@ export function subscribe(
 		instance.listeners.delete(listener);
 
 		if (instance.listeners.size === 0) {
-			// Start idle timer -- don't tear down immediately in case of page reload
 			instance.idleTimer = setTimeout(async () => {
 				if (instance.listeners.size === 0) {
 					await destroyWatcher();
@@ -257,8 +266,6 @@ export async function destroyWatcher(): Promise<void> {
 		console.warn('[watcher] Error closing watcher:', (err as Error).message);
 	}
 
-	// Always clear -- a failed close means the watcher is in a bad state
-	// and keeping the reference would prevent creating a fresh one
 	globalThis.__claudeitorWatcher = undefined;
 }
 

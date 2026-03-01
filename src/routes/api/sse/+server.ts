@@ -4,12 +4,14 @@
 //
 // Security: This app is localhost-only (bound to 127.0.0.1).
 // No auth required per spec -- single-user, no deployment.
+//
+// Supports both POST (sveltekit-sse default) and GET (SSE convention).
 
 import { produce } from 'sveltekit-sse';
 import { subscribe, type SSEEvent } from '$lib/server/watcher.js';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = () => {
+function createSSEResponse(): Response {
 	return produce(
 		function start({ emit, lock }) {
 			let unsubscribed = false;
@@ -39,7 +41,6 @@ export const POST: RequestHandler = () => {
 			};
 		},
 		{
-			// Ping every 15 seconds to detect stale connections
 			ping: 15_000,
 			headers: {
 				'X-Accel-Buffering': 'no',
@@ -47,4 +48,10 @@ export const POST: RequestHandler = () => {
 			}
 		}
 	);
-};
+}
+
+// POST: sveltekit-sse default method
+export const POST: RequestHandler = () => createSSEResponse();
+
+// GET: standard SSE convention (proxies/tools expect GET for EventSource)
+export const GET: RequestHandler = () => createSSEResponse();
