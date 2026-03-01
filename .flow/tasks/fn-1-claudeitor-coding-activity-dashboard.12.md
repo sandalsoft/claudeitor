@@ -44,9 +44,8 @@ Build four Config section pages: Skills (inventory with descriptions), Agents (i
 - [ ] Hooks organized by trigger type
 - [ ] All pages handle empty data (no skills, no agents, no memory, no hooks)
 ## Done summary
-TBD
-
+Built four Config section pages (Skills, Agents, Memory, Hooks) with enhanced data readers that parse YAML frontmatter for metadata, plus a new memory.ts reader for CLAUDE.md file discovery across global/project/child scopes. All pages feature expandable content viewers, summary stat cards, and empty state handling.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: ed5d7825135c072fad4b224b0782c54f0336c5fb
+- Tests: pnpm check, pnpm build
 - PRs:
