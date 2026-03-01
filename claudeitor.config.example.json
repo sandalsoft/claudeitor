@@ -4,5 +4,6 @@
 	"anthropicApiKey": "",
 	"aiModel": "claude-sonnet-4-5-20250929",
 	"costAlertThreshold": 50,
-	"refreshInterval": 30000
+	"refreshInterval": 30000,
+	"themeOverride": "system"
 }

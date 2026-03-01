@@ -3,6 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import Header from '$lib/components/layout/Header.svelte';
+	import CommandPalette from '$lib/components/layout/CommandPalette.svelte';
 	import { theme } from '$lib/stores/theme';
 	import { navigation } from '$lib/stores/navigation';
 
@@ -41,3 +42,5 @@
 		</main>
 	</div>
 </div>
+
+<CommandPalette />
