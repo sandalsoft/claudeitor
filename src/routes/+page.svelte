@@ -20,9 +20,23 @@
 		return () => realtime.disconnect();
 	});
 
-	// Merge server data with SSE live updates
+	// Merge server data with SSE live updates (stats, costs, sessions)
 	const stats = $derived(realtime.stats ?? data.stats);
+
+	// Cost summary: server-computed (SSE cost updates would need server-side
+	// re-aggregation since calculateCosts requires pricing data; for now,
+	// initial load data is authoritative, SSE refreshes stats/sessions only)
 	const costSummary = $derived(data.costSummary);
+
+	// Sessions: SSE delivers updated session list on history.jsonl changes
+	const recentSessions = $derived.by(() => {
+		if (realtime.sessions) {
+			return [...realtime.sessions]
+				.sort((a, b) => b.timestamp - a.timestamp)
+				.slice(0, 5);
+		}
+		return data.recentSessions;
+	});
 
 	// Stat card values
 	const repoCount = $derived(data.repoCount);
@@ -92,7 +106,7 @@
 		</div>
 	{/if}
 
-	<!-- Top stat cards: 4 columns -->
+	<!-- Top stat cards: 4 columns with trend indicators -->
 	<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
 		<StatCard
 			title="Repos"
@@ -104,21 +118,24 @@
 		<StatCard
 			title="Commits Today"
 			value={commitsToday}
-			trend={commitsToday > 0 ? 'up' : 'neutral'}
+			current={data.trends.commits.current}
+			previous={data.trends.commits.previous}
 		/>
 		<StatCard
 			title="Sessions"
 			value={totalSessions.toLocaleString()}
-			subtitle="all time"
+			subtitle="last 7d vs prev 7d"
 			href="/sessions"
-			trend="neutral"
+			current={data.trends.sessions.current}
+			previous={data.trends.sessions.previous}
 		/>
 		<StatCard
 			title="Est. Cost"
 			value={formatCurrency(totalCost)}
-			subtitle="all time"
+			subtitle="last 7d vs prev 7d"
 			href="/costs"
-			trend="neutral"
+			current={data.trends.cost.current}
+			previous={data.trends.cost.previous}
 		/>
 	</div>
 
@@ -143,11 +160,11 @@
 
 		<div class="rounded-xl border border-border bg-card p-4">
 			<h2 class="mb-3 text-sm font-medium text-foreground">Recent Sessions</h2>
-			{#if data.recentSessions.length === 0}
+			{#if recentSessions.length === 0}
 				<p class="py-4 text-center text-sm text-muted-foreground">No sessions yet</p>
 			{:else}
 				<div class="space-y-2">
-					{#each data.recentSessions as session (session.sessionId ?? session.timestamp)}
+					{#each recentSessions as session (session.sessionId ?? session.timestamp)}
 						<SessionCard
 							sessionId={session.sessionId ?? String(session.timestamp)}
 							description={session.display}
@@ -181,7 +198,7 @@
 		<div>
 			<h2 class="mb-3 text-sm font-medium text-foreground">Recently Active</h2>
 			<div class="flex flex-wrap gap-2">
-				{#each data.activeRepos as repo (repo.name)}
+				{#each data.activeRepos as repo (repo.id)}
 					<RepoChip
 						name={repo.name}
 						href="/repos"
