@@ -6,7 +6,12 @@
 	interface Props {
 		title: string;
 		value: string | number;
+		/** Explicit trend override. If omitted, derived from current/previous. */
 		trend?: Trend;
+		/** Current period numeric value (used to compute trend when trend prop is omitted). */
+		current?: number;
+		/** Previous period numeric value (used to compute trend when trend prop is omitted). */
+		previous?: number;
 		subtitle?: string;
 		href?: string;
 		class?: string;
@@ -15,11 +20,22 @@
 	const {
 		title,
 		value,
-		trend = 'neutral',
+		trend,
+		current,
+		previous,
 		subtitle,
 		href,
 		class: className = ''
 	}: Props = $props();
+
+	function computeTrend(cur?: number, prev?: number): Trend {
+		if (cur === undefined || prev === undefined) return 'neutral';
+		if (cur > prev) return 'up';
+		if (cur < prev) return 'down';
+		return 'neutral';
+	}
+
+	const resolvedTrend = $derived(trend ?? computeTrend(current, previous));
 
 	const trendColors: Record<Trend, string> = {
 		up: 'bg-success',
@@ -41,9 +57,9 @@
 			<div class="mt-1.5 flex items-center gap-2">
 				<span class="text-2xl font-semibold tracking-tight text-foreground">{value}</span>
 				<span
-					class="h-2 w-2 shrink-0 rounded-full {trendColors[trend]}"
-					title={trendLabels[trend]}
-					aria-label={trendLabels[trend]}
+					class="h-2 w-2 shrink-0 rounded-full {trendColors[resolvedTrend]}"
+					title={trendLabels[resolvedTrend]}
+					aria-label={trendLabels[resolvedTrend]}
 				></span>
 			</div>
 			{#if subtitle}

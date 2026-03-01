@@ -40,7 +40,16 @@
 		try {
 			const raw = localStorage.getItem(SNOOZE_KEY);
 			if (!raw) return {};
-			return JSON.parse(raw);
+			const parsed: unknown = JSON.parse(raw);
+			if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+			// Validate: only keep entries with numeric timestamp values
+			const result: Record<string, number> = {};
+			for (const [key, val] of Object.entries(parsed as Record<string, unknown>)) {
+				if (typeof val === 'number' && Number.isFinite(val)) {
+					result[key] = val;
+				}
+			}
+			return result;
 		} catch {
 			return {};
 		}

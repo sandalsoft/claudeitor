@@ -14,8 +14,16 @@
 
 	let visible = $state(false);
 
-	// Unique ID for aria-describedby association
-	const tooltipId = `tooltip-${crypto.randomUUID().slice(0, 8)}`;
+	// SSR-safe unique ID: use crypto.randomUUID when available, Math.random fallback
+	let idCounter = 0;
+	function generateId(): string {
+		if (typeof globalThis.crypto?.randomUUID === 'function') {
+			return `tooltip-${globalThis.crypto.randomUUID().slice(0, 8)}`;
+		}
+		return `tooltip-${Date.now().toString(36)}-${(idCounter++).toString(36)}`;
+	}
+
+	const tooltipId = generateId();
 
 	const positionClasses: Record<Position, string> = {
 		top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',

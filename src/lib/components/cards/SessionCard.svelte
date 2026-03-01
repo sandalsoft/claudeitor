@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/layout/Icon.svelte';
+	import { subscribeMinuteTick, getMinuteTick } from '$lib/stores/minute-tick';
 
 	interface Props {
 		sessionId: string;
@@ -39,19 +40,14 @@
 		return parts[parts.length - 1] || projectPath;
 	}
 
-	// Tick counter to force relative time re-computation every 60s
-	let tick = $state(0);
-
+	// Subscribe to shared minute tick (reference-counted, single interval for all cards)
 	$effect(() => {
-		const interval = setInterval(() => {
-			tick += 1;
-		}, 60_000);
-		return () => clearInterval(interval);
+		return subscribeMinuteTick();
 	});
 
-	// Use tick in derived to trigger recalculation
+	// Use shared tick in derived to trigger recalculation
 	const timeAgo = $derived.by(() => {
-		void tick;
+		void getMinuteTick();
 		return formatRelativeTime(timestamp);
 	});
 	const repoName = $derived(project ? extractRepoName(project) : undefined);
