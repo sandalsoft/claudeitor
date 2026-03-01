@@ -173,15 +173,17 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 		fileGeneration: new Map()
 	};
 
-	// Handle 'change', 'add', and 'unlink' events:
+	// Handle 'change' and 'add' events only (not 'unlink'):
 	// - 'change': normal file modification
 	// - 'add': atomic write patterns (write temp + rename) and new files
-	// - 'unlink': file deletion (readers return empty defaults on ENOENT)
+	// We intentionally skip 'unlink' because atomic writes (common in
+	// Claude's cache updates) emit unlink→add sequences. The unlink fires
+	// immediately (bypasses awaitWriteFinish), causing a spurious read of
+	// empty/default data before the add arrives with the real update.
 	// matchWatchedFile() filters to only our target files.
 	const handleFileEvent = (changedPath: string) => emitFileChange(instance, changedPath);
 	fsWatcher.on('change', handleFileEvent);
 	fsWatcher.on('add', handleFileEvent);
-	fsWatcher.on('unlink', handleFileEvent);
 
 	fsWatcher.on('error', (err: unknown) => {
 		console.warn('[watcher] Chokidar error:', formatError(err));
@@ -198,6 +200,11 @@ function registerShutdownHooks(): void {
 	const shutdown = () => {
 		const instance = globalThis.__claudeitorWatcher;
 		if (instance) {
+			// Clear idle timer so it doesn't keep the event loop alive
+			if (instance.idleTimer) {
+				clearTimeout(instance.idleTimer);
+				instance.idleTimer = null;
+			}
 			instance.listeners.clear();
 			instance.watcher.close().catch(() => {
 				// Swallow errors during shutdown
