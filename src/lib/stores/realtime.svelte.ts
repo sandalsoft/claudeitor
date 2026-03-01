@@ -6,8 +6,9 @@
 // We set cache: false so sveltekit-sse does not reuse stale connections.
 //
 // Ordering: each event carries a monotonic `seq` number per event type.
-// We only apply updates when seq is strictly greater than the last applied,
-// avoiding both timestamp ties and stale/out-of-order delivery.
+// We only apply updates when seq is strictly greater than the last applied.
+// Seq counters reset on each new connection (open callback) to handle
+// server restarts where the server-side generation counter resets to 1.
 
 import { source } from 'sveltekit-sse';
 import type { StatsCache, CostCache, SessionEntry } from '../data/types.js';
@@ -38,7 +39,8 @@ function createRealtimeStore() {
 	let status = $state<ConnectionStatus>('disconnected');
 	let lastEventAt = $state<number | null>(null);
 
-	// Per-type sequence numbers for ordering guard
+	// Per-type sequence numbers for ordering guard.
+	// Reset on each new connection via open() callback.
 	let lastStatsSeq = 0;
 	let lastCostsSeq = 0;
 	let lastSessionsSeq = 0;
@@ -48,31 +50,69 @@ function createRealtimeStore() {
 	let backoffMs = INITIAL_BACKOFF_MS;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let intentionalClose = false;
+	let tearingDown = false;
 
 	/**
-	 * Tear down connection and store subscriptions.
-	 * Re-entrancy safe: nulls `connection` before calling close() to
-	 * prevent infinite recursion when close() triggers the close callback.
+	 * Unsubscribe from Svelte readable stores only.
+	 * Does not close the SSE connection.
 	 */
-	function teardownConnection() {
-		for (const unsub of storeUnsubscribers) {
+	function cleanupSubscriptions() {
+		const unsubs = storeUnsubscribers;
+		storeUnsubscribers = [];
+		for (const unsub of unsubs) {
 			unsub();
 		}
-		storeUnsubscribers = [];
+	}
 
+	/**
+	 * Handle the connection being closed (by server, network, or us).
+	 * Called from close/error callbacks. Guarded against re-entrancy.
+	 */
+	function handleClosed() {
+		if (tearingDown) return;
+		tearingDown = true;
+
+		cleanupSubscriptions();
+		// Don't call connection.close() here -- if we're in the close/error
+		// callback, the connection is already closed. Just clear our reference.
+		connection = null;
+
+		tearingDown = false;
+
+		if (intentionalClose) {
+			status = 'disconnected';
+			return;
+		}
+
+		status = 'error';
+		scheduleReconnect();
+	}
+
+	/**
+	 * Actively tear down an open connection (for disconnect/reconnectNow).
+	 * Closes the source and cleans up subscriptions.
+	 */
+	function closeConnection() {
+		if (tearingDown) return;
+		tearingDown = true;
+
+		cleanupSubscriptions();
+
+		// Null out before closing to prevent re-entrancy: close() fires
+		// the close callback synchronously, which calls handleClosed().
 		const conn = connection;
 		connection = null;
 		if (conn) {
 			conn.close();
 		}
+
+		tearingDown = false;
 	}
 
 	function connect() {
 		if (connection) return;
 
-		// Clear any pending reconnect timer to prevent backoff drift:
-		// if connect() is called manually while a timer is pending,
-		// the timer would fire, no-op, but still increase backoffMs.
+		// Clear any pending reconnect timer to prevent backoff drift
 		if (reconnectTimer) {
 			clearTimeout(reconnectTimer);
 			reconnectTimer = null;
@@ -85,28 +125,17 @@ function createRealtimeStore() {
 			open() {
 				status = 'connected';
 				backoffMs = INITIAL_BACKOFF_MS;
+				// Reset seq counters so server restarts (where seq resets to 1)
+				// don't cause all future events to be dropped
+				lastStatsSeq = 0;
+				lastCostsSeq = 0;
+				lastSessionsSeq = 0;
 			},
 			close() {
-				teardownConnection();
-
-				if (intentionalClose) {
-					status = 'disconnected';
-					return;
-				}
-
-				status = 'error';
-				scheduleReconnect();
+				handleClosed();
 			},
 			error() {
-				teardownConnection();
-
-				if (intentionalClose) {
-					status = 'disconnected';
-					return;
-				}
-
-				status = 'error';
-				scheduleReconnect();
+				handleClosed();
 			},
 			cache: false,
 			options: {
@@ -114,8 +143,7 @@ function createRealtimeStore() {
 			}
 		});
 
-		// Subscribe to each event type.
-		// The server emits full SSEEvent payloads (with type, data, timestamp, seq).
+		// Subscribe to each event type
 		const statsStore = connection.select('stats-update').json<SSEPayload>();
 		const costsStore = connection.select('cost-update').json<SSEPayload>();
 		const sessionsStore = connection.select('session-update').json<SSEPayload>();
@@ -159,13 +187,11 @@ function createRealtimeStore() {
 		}
 
 		const delay = backoffMs;
-		// Increase backoff now so it's ready for the next failure
 		backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
 
 		reconnectTimer = setTimeout(() => {
 			reconnectTimer = null;
 			if (intentionalClose) return;
-			// connect() will no-op if connection already exists
 			connect();
 		}, delay);
 	}
@@ -178,7 +204,7 @@ function createRealtimeStore() {
 			reconnectTimer = null;
 		}
 
-		teardownConnection();
+		closeConnection();
 
 		status = 'disconnected';
 		backoffMs = INITIAL_BACKOFF_MS;

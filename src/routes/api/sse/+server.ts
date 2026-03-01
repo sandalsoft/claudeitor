@@ -16,28 +16,41 @@ function createSSEResponse(): Response {
 		function start({ emit, lock }) {
 			let unsubscribed = false;
 
-			const unsubscribe = subscribe((event: SSEEvent) => {
-				if (unsubscribed) return;
-
-				// Emit the full event payload (type, data, timestamp) so the
-				// client can use the server-side timestamp for staleness checks.
-				const { error } = emit(event.type, JSON.stringify(event));
-				if (error) {
-					// Client disconnected -- unsubscribe immediately to stop
-					// wasted reads, and unlock the stream to end it.
+			function cleanup() {
+				if (!unsubscribed) {
 					unsubscribed = true;
 					unsubscribe();
 					lock.set(false);
+				}
+			}
+
+			const unsubscribe = subscribe((event: SSEEvent) => {
+				if (unsubscribed) return;
+
+				let payload: string;
+				try {
+					payload = JSON.stringify(event);
+				} catch (err) {
+					console.warn(
+						'[sse] Failed to serialize event:',
+						err instanceof Error ? err.message : String(err)
+					);
+					cleanup();
+					return;
+				}
+
+				// Emit the full event payload (type, data, timestamp, seq) so the
+				// client can use the server-side seq/timestamp for ordering.
+				const { error } = emit(event.type, payload);
+				if (error) {
+					// Client disconnected -- unsubscribe immediately
+					cleanup();
 					return;
 				}
 			});
 
-			// Return the stop function that cleans up when client disconnects
 			return function stop() {
-				if (!unsubscribed) {
-					unsubscribed = true;
-					unsubscribe();
-				}
+				cleanup();
 			};
 		},
 		{

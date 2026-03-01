@@ -8,8 +8,13 @@
 // is emitted -- earlier (stale) reads are silently dropped.
 // The generation counter is included in SSE events as a monotonic
 // sequence number so clients can order events without timestamp ties.
+//
+// Note: spec listed src/lib/data/watcher.ts but this file lives in
+// src/lib/server/ because it uses Node APIs (chokidar, fs) and must
+// be server-only per SvelteKit conventions.
 
 import { watch, type FSWatcher } from 'chokidar';
+import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { homedir } from 'node:os';
 import { readStatsCache } from './claude/stats.js';
@@ -141,6 +146,12 @@ function emitFileChange(instance: WatcherInstance, changedPath: string): void {
 }
 
 function createWatcherInstance(claudeDir: string): WatcherInstance {
+	// Verify the directory exists before setting up the watcher.
+	// Log a clear warning so "SSE connected but never updates" is diagnosable.
+	if (!existsSync(claudeDir)) {
+		console.warn(`[watcher] Directory does not exist: ${claudeDir} -- file watching will not produce events until it is created`);
+	}
+
 	// Watch the directory and filter events by basename. This is more
 	// robust than watching individual file paths because atomic writes
 	// (write temp + rename) and file recreation are handled consistently.
@@ -245,20 +256,24 @@ export function subscribe(
 
 		if (instance.listeners.size === 0) {
 			instance.idleTimer = setTimeout(async () => {
-				if (instance.listeners.size === 0) {
-					await destroyWatcher();
-				}
+				// destroyWatcher re-checks listeners.size internally
+				await destroyWatcher();
 			}, IDLE_TIMEOUT_MS);
 		}
 	};
 }
 
 /**
- * Destroy the singleton watcher. Called on server shutdown.
+ * Destroy the singleton watcher. Called on server shutdown or idle timeout.
+ * Bails if listeners have been added since the destroy was scheduled.
  */
 export async function destroyWatcher(): Promise<void> {
 	const instance = globalThis.__claudeitorWatcher;
 	if (!instance) return;
+
+	// Race guard: a new subscriber may have been added between when
+	// the idle timeout fired and when this function executes.
+	if (instance.listeners.size > 0) return;
 
 	if (instance.idleTimer) {
 		clearTimeout(instance.idleTimer);
