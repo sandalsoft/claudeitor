@@ -64,9 +64,8 @@ Build the Settings page (API key, repo dirs, theme, model selection, cost thresh
 - [ ] Command palette keyboard navigable (arrow keys, enter to select)
 - [ ] Selected item navigates to correct route
 ## Done summary
-TBD
-
+Built Settings page with all configuration sections (General, API, Alerts, Display, About) and Cmd+K command palette using Bits UI Command + Dialog components. Settings persist atomically to claudeitor.config.json via POST /api/settings; API key is server-only (never returned to client). Command palette provides fuzzy search across all navigation pages with keyboard navigation.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: d4a110717875470ddebc704b7c232520be9331bc
+- Tests: pnpm check, pnpm test, pnpm build
 - PRs:
