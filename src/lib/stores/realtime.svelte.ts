@@ -9,6 +9,11 @@
 // We only apply updates when seq is strictly greater than the last applied.
 // Seq counters reset on each new connection (open callback) to handle
 // server restarts where the server-side generation counter resets to 1.
+//
+// Initial data: SSE only delivers *changes* after connection. Initial page
+// data comes from the SvelteKit load function (server-side fetch on page
+// load). The store fields start as null and are populated only when the
+// first SSE event arrives with updated data.
 
 import { source } from 'sveltekit-sse';
 import type { StatsCache, CostCache, SessionEntry } from '../data/types.js';
@@ -25,9 +30,10 @@ const BACKOFF_MULTIPLIER = 2;
 
 // ─── Store ───────────────────────────────────────────────────
 
+/** Mirrors the server-side SSEEvent shape for type-safe deserialization. */
 interface SSEPayload {
-	type: string;
-	data: unknown;
+	type: 'stats-update' | 'cost-update' | 'session-update';
+	data: StatsCache | CostCache | SessionEntry[];
 	timestamp: number;
 	seq: number;
 }

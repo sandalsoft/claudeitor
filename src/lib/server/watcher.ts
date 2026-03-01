@@ -173,13 +173,15 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 		fileGeneration: new Map()
 	};
 
-	// Handle both 'change' and 'add' events. Atomic write patterns
-	// (write temp + rename) surface as 'add' rather than 'change',
-	// and files created after startup also emit 'add'.
+	// Handle 'change', 'add', and 'unlink' events:
+	// - 'change': normal file modification
+	// - 'add': atomic write patterns (write temp + rename) and new files
+	// - 'unlink': file deletion (readers return empty defaults on ENOENT)
 	// matchWatchedFile() filters to only our target files.
 	const handleFileEvent = (changedPath: string) => emitFileChange(instance, changedPath);
 	fsWatcher.on('change', handleFileEvent);
 	fsWatcher.on('add', handleFileEvent);
+	fsWatcher.on('unlink', handleFileEvent);
 
 	fsWatcher.on('error', (err: unknown) => {
 		console.warn('[watcher] Chokidar error:', formatError(err));
@@ -266,6 +268,11 @@ export function subscribe(
 /**
  * Destroy the singleton watcher. Called on server shutdown or idle timeout.
  * Bails if listeners have been added since the destroy was scheduled.
+ *
+ * Atomicity: we clear the globalThis reference synchronously *before* the
+ * async watcher.close(). This means any new subscriber arriving during the
+ * close will see no existing instance and create a fresh one, rather than
+ * attaching to a watcher that is mid-destruction.
  */
 export async function destroyWatcher(): Promise<void> {
 	const instance = globalThis.__claudeitorWatcher;
@@ -280,6 +287,10 @@ export async function destroyWatcher(): Promise<void> {
 		instance.idleTimer = null;
 	}
 
+	// Clear the singleton reference synchronously so new subscribers
+	// arriving during the async close() create a fresh instance.
+	globalThis.__claudeitorWatcher = undefined;
+
 	instance.listeners.clear();
 
 	try {
@@ -288,8 +299,6 @@ export async function destroyWatcher(): Promise<void> {
 	} catch (err) {
 		console.warn('[watcher] Error closing watcher:', formatError(err));
 	}
-
-	globalThis.__claudeitorWatcher = undefined;
 }
 
 /**
