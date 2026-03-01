@@ -1,21 +1,29 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { onDestroy } from 'svelte';
 	import Icon from '$lib/components/layout/Icon.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
 
-	// Polling-based refresh (NOT SSE -- per spec)
-	let interval: ReturnType<typeof setInterval> | undefined;
-
+	// Polling-based refresh (NOT SSE -- per spec).
+	// Uses recursive setTimeout so the next poll only starts after the
+	// previous invalidation completes, preventing overlap on slow scans.
 	$effect(() => {
-		interval = setInterval(() => {
-			invalidateAll();
-		}, data.refreshInterval ?? 30_000);
+		let cancelled = false;
+
+		async function poll() {
+			if (cancelled) return;
+			await invalidateAll();
+			if (!cancelled) {
+				setTimeout(poll, data.refreshInterval ?? 30_000);
+			}
+		}
+
+		const timer = setTimeout(poll, data.refreshInterval ?? 30_000);
 
 		return () => {
-			if (interval) clearInterval(interval);
+			cancelled = true;
+			clearTimeout(timer);
 		};
 	});
 

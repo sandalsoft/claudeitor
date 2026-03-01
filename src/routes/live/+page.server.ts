@@ -3,7 +3,6 @@ import { detectActiveSessions } from '$lib/server/claude/active-sessions';
 import { readSessionHistory } from '$lib/server/claude/sessions';
 import { readConfig } from '$lib/server/config';
 import { scanRepos } from '$lib/server/git/scanner';
-import type { RepoCommit } from '$lib/server/git/types';
 
 interface ActivityEvent {
 	type: 'commit' | 'session';
@@ -13,18 +12,29 @@ interface ActivityEvent {
 	repo?: string;
 }
 
-export const load: PageServerLoad = async () => {
-	const config = await readConfig();
+// TTL cache for the activity feed to avoid re-scanning repos on every poll.
+// Active session detection is cheap and always fresh; git+session scan is
+// cached for 15 seconds so rapid polls don't shell out repeatedly.
+let cachedEvents: ActivityEvent[] = [];
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 15_000;
 
-	const [activeSessions, sessions, gitResult] = await Promise.all([
-		detectActiveSessions(config.claudeDir),
-		readSessionHistory(config.claudeDir),
-		scanRepos(config.repoDirs)
+async function loadActivityEvents(
+	claudeDir: string,
+	repoDirs: string[]
+): Promise<ActivityEvent[]> {
+	const now = Date.now();
+	if (now - cacheTimestamp < CACHE_TTL_MS && cachedEvents.length > 0) {
+		return cachedEvents;
+	}
+
+	const [sessions, gitResult] = await Promise.all([
+		readSessionHistory(claudeDir),
+		scanRepos(repoDirs)
 	]);
 
-	// Build activity feed: recent commits + session starts, merged and sorted
 	const events: ActivityEvent[] = [];
-	const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+	const oneDayAgo = now - 24 * 60 * 60 * 1000;
 
 	// Add recent commits from all repos
 	for (const repo of gitResult.repos) {
@@ -60,11 +70,25 @@ export const load: PageServerLoad = async () => {
 
 	// Sort newest first, limit to 50
 	events.sort((a, b) => b.timestamp - a.timestamp);
-	const recentEvents = events.slice(0, 50);
+	cachedEvents = events.slice(0, 50);
+	cacheTimestamp = now;
+
+	return cachedEvents;
+}
+
+export const load: PageServerLoad = async () => {
+	const config = await readConfig();
+
+	// Active sessions are always fresh (cheap ps command);
+	// activity feed uses a TTL cache to throttle git scanning.
+	const [activeSessions, events] = await Promise.all([
+		detectActiveSessions(config.claudeDir),
+		loadActivityEvents(config.claudeDir, config.repoDirs)
+	]);
 
 	return {
 		activeSessions,
-		events: recentEvents,
+		events,
 		refreshInterval: config.refreshInterval
 	};
 };

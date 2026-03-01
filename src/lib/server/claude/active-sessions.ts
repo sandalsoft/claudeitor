@@ -27,7 +27,9 @@ export interface ActiveSession {
 }
 
 /**
- * Detect running Claude Code processes by scanning `ps aux`.
+ * Detect running Claude Code processes by scanning the process table.
+ * Uses `ps -axo` with explicit columns for deterministic parsing
+ * (avoids layout-dependent parsing of `ps aux`).
  * Filters to processes whose command includes "claude" but excludes
  * this dashboard's own server process and grep itself.
  */
@@ -35,22 +37,31 @@ export async function detectActiveSessions(
 	claudeDir = DEFAULT_CLAUDE_DIR
 ): Promise<ActiveSession[]> {
 	try {
-		const { stdout } = await execAsync('ps aux', { timeout: 5000 });
+		// Explicit columns for deterministic parsing; maxBuffer handles busy systems.
+		const { stdout } = await execAsync('ps -axo pid,pcpu,pmem,lstart,command', {
+			timeout: 5000,
+			maxBuffer: 8 * 1024 * 1024
+		});
 		const lines = stdout.split('\n').slice(1); // skip header
 		const sessions: ActiveSession[] = [];
 
 		for (const line of lines) {
 			if (!line.trim()) continue;
 
-			// Parse ps aux columns: USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
-			const parts = line.trim().split(/\s+/);
-			if (parts.length < 11) continue;
+			// Columns: PID %CPU %MEM LSTART(4 tokens: day month date time) COMMAND
+			// Example:  1234  0.0  0.1 Sun Mar  1 02:30:00 2026 /usr/bin/claude ...
+			const match = line
+				.trim()
+				.match(
+					/^(\d+)\s+([\d.]+)\s+([\d.]+)\s+(\w+\s+\w+\s+\d+\s+[\d:]+\s+\d+)\s+(.+)$/
+				);
+			if (!match) continue;
 
-			const pid = parseInt(parts[1], 10);
-			const cpuPercent = parseFloat(parts[2]) || 0;
-			const memPercent = parseFloat(parts[3]) || 0;
-			const startTime = parts[8];
-			const command = parts.slice(10).join(' ');
+			const pid = parseInt(match[1], 10);
+			const cpuPercent = parseFloat(match[2]) || 0;
+			const memPercent = parseFloat(match[3]) || 0;
+			const startTime = match[4];
+			const command = match[5];
 
 			// Match Claude Code processes -- look for the "claude" CLI
 			// but exclude grep, this server, and editor processes
@@ -143,14 +154,29 @@ async function correlateWithSessionFiles(
 							? dir.slice(1).replace(/-/g, '/')
 							: dir;
 
-						// Assign to first session without a sessionId that matches the project
+						// Try to match by project path first, then fall back to
+						// unassigned sessions. Prevents misassociation when
+						// multiple sessions are active simultaneously.
+						let assigned = false;
 						for (const session of sessions) {
-							if (!session.sessionId) {
+							if (
+								!session.sessionId &&
+								session.project &&
+								projectPath.includes(session.project)
+							) {
 								session.sessionId = sessionId;
-								if (!session.project) {
-									session.project = projectPath;
-								}
+								assigned = true;
 								break;
+							}
+						}
+						// Fall back: assign to first unmatched session without a project
+						if (!assigned) {
+							for (const session of sessions) {
+								if (!session.sessionId && !session.project) {
+									session.sessionId = sessionId;
+									session.project = projectPath;
+									break;
+								}
 							}
 						}
 					}

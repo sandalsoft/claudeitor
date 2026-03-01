@@ -46,7 +46,7 @@
 			case 'green':
 				return 'Clean';
 			case 'yellow':
-				return 'Uncommitted';
+				return 'Dirty';
 			case 'red':
 				return 'Needs attention';
 			default:
