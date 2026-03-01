@@ -41,6 +41,11 @@ function createRealtimeStore() {
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let intentionalClose = false;
 
+	/**
+	 * Tear down connection and store subscriptions.
+	 * Re-entrancy safe: nulls `connection` before calling close() to
+	 * prevent infinite recursion when close() triggers the close callback.
+	 */
 	function teardownConnection() {
 		// Unsubscribe from all Svelte readable stores first
 		for (const unsub of storeUnsubscribers) {
@@ -48,10 +53,13 @@ function createRealtimeStore() {
 		}
 		storeUnsubscribers = [];
 
-		// Close the SSE connection
-		if (connection) {
-			connection.close();
-			connection = null;
+		// Capture and null out before closing to prevent re-entrancy:
+		// connection.close() triggers the close callback synchronously,
+		// which would call teardownConnection() again without this guard.
+		const conn = connection;
+		connection = null;
+		if (conn) {
+			conn.close();
 		}
 	}
 

@@ -1,7 +1,7 @@
 // Chokidar singleton file watcher for ~/.claude/ data files.
 // Uses globalThis to prevent duplicate watchers during HMR reloads.
-// Reference-counts SSE connections: creates watcher on first connect,
-// destroys when last disconnects (with idle timeout grace period).
+// Tracks SSE connections via listeners.size: creates watcher on first
+// connect, destroys when last disconnects (with idle timeout grace period).
 
 import { watch, type FSWatcher } from 'chokidar';
 import { join } from 'node:path';
@@ -44,7 +44,6 @@ const FILE_TO_EVENT: Record<WatchedFile, SSEEventType> = {
 interface WatcherInstance {
 	watcher: FSWatcher;
 	listeners: Set<WatcherListener>;
-	refCount: number;
 	idleTimer: ReturnType<typeof setTimeout> | null;
 	claudeDir: string;
 }
@@ -70,6 +69,10 @@ function getWatchedFilePath(changedPath: string): WatchedFile | null {
 	return null;
 }
 
+function assertNever(value: never): never {
+	throw new Error(`[watcher] Unexpected watched file: ${String(value)}`);
+}
+
 async function readFileData(
 	file: WatchedFile,
 	claudeDir: string
@@ -81,6 +84,8 @@ async function readFileData(
 			return readCostCache(claudeDir);
 		case 'history.jsonl':
 			return readSessionHistory(claudeDir);
+		default:
+			return assertNever(file);
 	}
 }
 
@@ -128,7 +133,6 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 	const instance: WatcherInstance = {
 		watcher: fsWatcher,
 		listeners: new Set(),
-		refCount: 0,
 		idleTimer: null,
 		claudeDir
 	};
@@ -158,7 +162,6 @@ function registerShutdownHooks(): void {
 		const instance = globalThis.__claudeitorWatcher;
 		if (instance) {
 			instance.listeners.clear();
-			instance.refCount = 0;
 			instance.watcher.close().catch(() => {
 				// Swallow errors during shutdown
 			});
@@ -195,6 +198,9 @@ function ensureInstance(claudeDir: string): WatcherInstance {
  * Subscribe to file change events. Returns an unsubscribe function.
  * Creates the watcher on first subscription, destroys after idle timeout
  * when all subscribers disconnect.
+ *
+ * Connection tracking uses listeners.size directly (no separate refCount)
+ * to avoid divergence between Set membership and counter.
  */
 export function subscribe(
 	listener: WatcherListener,
@@ -209,9 +215,8 @@ export function subscribe(
 	}
 
 	instance.listeners.add(listener);
-	instance.refCount++;
 
-	// Guard against double-unsubscribe: only decrement if we actually remove
+	// Guard against double-unsubscribe
 	let unsubscribed = false;
 
 	return () => {
@@ -219,12 +224,11 @@ export function subscribe(
 		unsubscribed = true;
 
 		instance.listeners.delete(listener);
-		instance.refCount--;
 
-		if (instance.refCount <= 0) {
+		if (instance.listeners.size === 0) {
 			// Start idle timer -- don't tear down immediately in case of page reload
 			instance.idleTimer = setTimeout(async () => {
-				if (instance.refCount <= 0) {
+				if (instance.listeners.size === 0) {
 					await destroyWatcher();
 				}
 			}, IDLE_TIMEOUT_MS);
@@ -245,19 +249,17 @@ export async function destroyWatcher(): Promise<void> {
 	}
 
 	instance.listeners.clear();
-	instance.refCount = 0;
 
 	try {
 		await instance.watcher.close();
 		console.log('[watcher] Destroyed singleton file watcher');
-		// Only clear the global reference after successful close
-		globalThis.__claudeitorWatcher = undefined;
 	} catch (err) {
 		console.warn('[watcher] Error closing watcher:', (err as Error).message);
-		// Still clear -- a failed close likely means the watcher is in a bad state
-		// and keeping the reference would prevent creating a fresh one
-		globalThis.__claudeitorWatcher = undefined;
 	}
+
+	// Always clear -- a failed close means the watcher is in a bad state
+	// and keeping the reference would prevent creating a fresh one
+	globalThis.__claudeitorWatcher = undefined;
 }
 
 /**
@@ -265,16 +267,16 @@ export async function destroyWatcher(): Promise<void> {
  */
 export function getWatcherStats(): {
 	active: boolean;
-	refCount: number;
+	listenerCount: number;
 	idleTimerPending: boolean;
 } {
 	const instance = globalThis.__claudeitorWatcher;
 	if (!instance) {
-		return { active: false, refCount: 0, idleTimerPending: false };
+		return { active: false, listenerCount: 0, idleTimerPending: false };
 	}
 	return {
 		active: true,
-		refCount: instance.refCount,
+		listenerCount: instance.listeners.size,
 		idleTimerPending: instance.idleTimer !== null
 	};
 }

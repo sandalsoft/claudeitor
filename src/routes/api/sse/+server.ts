@@ -11,20 +11,31 @@ import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = () => {
 	return produce(
-		function start({ emit }) {
+		function start({ emit, lock }) {
+			let unsubscribed = false;
+
 			const unsubscribe = subscribe((event: SSEEvent) => {
+				if (unsubscribed) return;
+
 				// Emit the full event payload (type, data, timestamp) so the
 				// client can use the server-side timestamp for staleness checks.
 				const { error } = emit(event.type, JSON.stringify(event));
 				if (error) {
-					// Client disconnected -- unsubscribe will happen in stop()
+					// Client disconnected -- unsubscribe immediately to stop
+					// wasted reads, and unlock the stream to end it.
+					unsubscribed = true;
+					unsubscribe();
+					lock.set(false);
 					return;
 				}
 			});
 
 			// Return the stop function that cleans up when client disconnects
 			return function stop() {
-				unsubscribe();
+				if (!unsubscribed) {
+					unsubscribed = true;
+					unsubscribe();
+				}
 			};
 		},
 		{
