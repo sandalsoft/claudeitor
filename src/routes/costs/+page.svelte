@@ -5,6 +5,7 @@
 	import CostTrendChart from '$lib/components/charts/CostTrendChart.svelte';
 	import CostBreakdownChart from '$lib/components/charts/CostBreakdownChart.svelte';
 	import Icon from '$lib/components/layout/Icon.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { formatCurrency, formatNumber } from '$lib/utils/chart-helpers';
 	import type { PageData } from './$types';
 
@@ -99,12 +100,11 @@
 	</div>
 
 	{#if !hasData}
-		<!-- Empty state -->
-		<div class="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-16">
-			<Icon name="dollar-sign" size={32} class="text-muted-foreground/40" />
-			<p class="text-sm text-muted-foreground">No cost data available yet.</p>
-			<p class="text-xs text-muted-foreground">Cost data is collected from Claude Code usage.</p>
-		</div>
+		<EmptyState
+			icon="dollar-sign"
+			title="No cost data available yet."
+			description="Cost data is collected automatically from your Claude Code usage. Start a session to begin tracking costs."
+		/>
 	{:else}
 		<!-- Summary stat cards -->
 		<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">

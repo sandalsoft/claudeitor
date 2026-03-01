@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import Icon from '$lib/components/layout/Icon.svelte';
 	import StatCard from '$lib/components/cards/StatCard.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -103,14 +104,13 @@
 	</div>
 
 	{#if data.repos.length === 0}
-		<!-- Empty state -->
-		<div class="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-16">
-			<Icon name="git-branch" size={32} class="text-muted-foreground/40" />
-			<p class="text-sm text-muted-foreground">No repositories discovered.</p>
-			<p class="text-xs text-muted-foreground">
-				Configure repository directories in claudeitor.config.json to scan for repos.
-			</p>
-		</div>
+		<EmptyState
+			icon="git-branch"
+			title="No repositories discovered."
+			description="Configure repository directories in Settings to scan for repos."
+			ctaLabel="Configure Repos"
+			ctaHref="/settings"
+		/>
 	{:else}
 		<!-- Summary stat cards -->
 		<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">

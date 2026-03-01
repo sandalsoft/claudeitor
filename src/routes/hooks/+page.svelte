@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/layout/Icon.svelte';
 	import StatCard from '$lib/components/cards/StatCard.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -57,16 +58,13 @@
 	</div>
 
 	{#if data.groups.length === 0}
-		<!-- Empty state -->
-		<div
-			class="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-16"
-		>
-			<Icon name="webhook" size={32} class="text-muted-foreground/40" />
-			<p class="text-sm text-muted-foreground">No hooks configured.</p>
-			<p class="text-xs text-muted-foreground">
-				Add hooks to settings.json to run scripts at specific Claude Code workflow points.
-			</p>
-		</div>
+		<EmptyState
+			icon="webhook"
+			title="No hooks configured."
+			description="Add hooks to settings.json to run scripts at specific Claude Code workflow points."
+			ctaLabel="Open Settings"
+			ctaHref="/settings"
+		/>
 	{:else}
 		<!-- Summary stats -->
 		<div class="grid grid-cols-2 gap-3 lg:grid-cols-3">

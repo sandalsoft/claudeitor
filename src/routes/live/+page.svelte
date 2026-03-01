@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import Icon from '$lib/components/layout/Icon.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -80,12 +81,12 @@
 		</div>
 
 		{#if data.activeSessions.length === 0}
-			<div class="flex flex-col items-center gap-3 px-4 py-12">
-				<Icon name="monitor" size={32} class="text-muted-foreground/40" />
-				<p class="text-sm text-muted-foreground">No active Claude sessions.</p>
-				<p class="text-xs text-muted-foreground">
-					Start a Claude Code session in your terminal to see it appear here.
-				</p>
+			<div class="px-4 py-4">
+				<EmptyState
+					icon="monitor"
+					title="No active Claude sessions."
+					description="Start a Claude Code session in your terminal to see it appear here."
+				/>
 			</div>
 		{:else}
 			<div class="divide-y divide-border">
@@ -130,12 +131,12 @@
 		</div>
 
 		{#if data.events.length === 0}
-			<div class="flex flex-col items-center gap-3 px-4 py-12">
-				<Icon name="calendar" size={32} class="text-muted-foreground/40" />
-				<p class="text-sm text-muted-foreground">No recent activity.</p>
-				<p class="text-xs text-muted-foreground">
-					Commits and session starts from the last 24 hours will appear here.
-				</p>
+			<div class="px-4 py-4">
+				<EmptyState
+					icon="calendar"
+					title="No recent activity."
+					description="Commits and session starts from the last 24 hours will appear here."
+				/>
 			</div>
 		{:else}
 			<div class="divide-y divide-border/50">

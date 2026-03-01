@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/layout/Icon.svelte';
 	import StatCard from '$lib/components/cards/StatCard.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -52,17 +53,11 @@
 	</div>
 
 	{#if data.files.length === 0}
-		<!-- Empty state -->
-		<div
-			class="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-16"
-		>
-			<Icon name="brain" size={32} class="text-muted-foreground/40" />
-			<p class="text-sm text-muted-foreground">No CLAUDE.md files found.</p>
-			<p class="text-xs text-muted-foreground">
-				Create a CLAUDE.md in ~/.claude/ or your project root to provide Claude with
-				persistent context.
-			</p>
-		</div>
+		<EmptyState
+			icon="brain"
+			title="No CLAUDE.md files found."
+			description="Create a CLAUDE.md in ~/.claude/ or your project root to provide Claude with persistent context."
+		/>
 	{:else}
 		<!-- Summary stats -->
 		<div class="grid grid-cols-2 gap-3 lg:grid-cols-3">

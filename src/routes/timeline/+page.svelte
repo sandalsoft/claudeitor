@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import Icon from '$lib/components/layout/Icon.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -204,25 +205,21 @@
 	</div>
 
 	{#if data.events.length === 0}
-		<!-- Empty state -->
-		<div class="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-16">
-			<Icon name="calendar" size={32} class="text-muted-foreground/40" />
-			<p class="text-sm text-muted-foreground">
-				{hasFilters ? 'No events match your filters.' : 'No timeline events yet.'}
-			</p>
-			{#if hasFilters}
-				<button
-					onclick={clearFilters}
-					class="text-xs text-primary hover:underline"
-				>
-					Clear all filters
-				</button>
-			{:else}
-				<p class="text-xs text-muted-foreground">
-					Configure repository directories to populate the timeline.
-				</p>
-			{/if}
-		</div>
+		{#if hasFilters}
+			<EmptyState
+				icon="calendar"
+				title="No events match your filters."
+				description="Try adjusting your filter criteria or clear all filters to see all events."
+			/>
+		{:else}
+			<EmptyState
+				icon="calendar"
+				title="No timeline events yet."
+				description="Configure repository directories in Settings to populate the timeline."
+				ctaLabel="Configure Repos"
+				ctaHref="/settings"
+			/>
+		{/if}
 	{:else}
 		<!-- Timeline -->
 		<div class="space-y-6">

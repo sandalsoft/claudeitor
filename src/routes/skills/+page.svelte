@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/layout/Icon.svelte';
 	import StatCard from '$lib/components/cards/StatCard.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -34,16 +35,13 @@
 	</div>
 
 	{#if data.skills.length === 0}
-		<!-- Empty state -->
-		<div
-			class="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-16"
-		>
-			<Icon name="sparkles" size={32} class="text-muted-foreground/40" />
-			<p class="text-sm text-muted-foreground">No skills found.</p>
-			<p class="text-xs text-muted-foreground">
-				Create skill directories in ~/.claude/skills/ with a SKILL.md file.
-			</p>
-		</div>
+		<EmptyState
+			icon="sparkles"
+			title="No skills found."
+			description="Create skill directories in ~/.claude/skills/ with a SKILL.md file to extend Claude's capabilities."
+			ctaLabel="Open Settings"
+			ctaHref="/settings"
+		/>
 	{:else}
 		<!-- Summary stats -->
 		<div class="grid grid-cols-2 gap-3 lg:grid-cols-3">

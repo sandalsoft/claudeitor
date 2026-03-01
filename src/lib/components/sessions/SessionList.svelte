@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/layout/Icon.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { SessionEntry } from '$lib/data/types';
 
 	interface Props {
@@ -89,23 +90,19 @@
 
 <!-- Session list -->
 {#if sessions.length === 0}
-	<div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16">
-		<Icon name="messages-square" size={40} class="mb-3 text-muted-foreground/40" />
-		{#if query}
-			<p class="text-sm text-muted-foreground">No sessions matching "{query}"</p>
-			<a
-				href="/sessions"
-				class="mt-2 text-sm text-foreground underline underline-offset-2 hover:text-foreground/80"
-			>
-				Clear search
-			</a>
-		{:else}
-			<p class="text-sm text-muted-foreground">No sessions yet</p>
-			<p class="mt-1 text-xs text-muted-foreground/70">
-				Sessions will appear here as you use Claude Code
-			</p>
-		{/if}
-	</div>
+	{#if query}
+		<EmptyState
+			icon="messages-square"
+			title={'No sessions matching "' + query + '"'}
+			description="Try a different search term or clear the search to see all sessions."
+		/>
+	{:else}
+		<EmptyState
+			icon="messages-square"
+			title="No sessions yet."
+			description="Sessions will appear here as you use Claude Code. Start a session in your terminal to begin."
+		/>
+	{/if}
 {:else}
 	<div class="space-y-1">
 		{#each sessions as session (session.sessionId ?? session.timestamp)}

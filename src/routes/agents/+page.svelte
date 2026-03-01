@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/layout/Icon.svelte';
 	import StatCard from '$lib/components/cards/StatCard.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -32,16 +33,11 @@
 	</div>
 
 	{#if data.agents.length === 0}
-		<!-- Empty state -->
-		<div
-			class="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-16"
-		>
-			<Icon name="bot" size={32} class="text-muted-foreground/40" />
-			<p class="text-sm text-muted-foreground">No agents defined.</p>
-			<p class="text-xs text-muted-foreground">
-				Create markdown files in ~/.claude/agents/ to define custom subagents.
-			</p>
-		</div>
+		<EmptyState
+			icon="bot"
+			title="No agents defined."
+			description="Create markdown files in ~/.claude/agents/ to define custom subagents with specialized capabilities."
+		/>
 	{:else}
 		<!-- Summary stats -->
 		<div class="grid grid-cols-2 gap-3 lg:grid-cols-3">

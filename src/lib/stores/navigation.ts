@@ -94,5 +94,11 @@ export const navSections: NavSection[] = [
 			{ label: 'Env', href: '/env', icon: 'variable', stub: true },
 			{ label: 'Lint', href: '/lint', icon: 'check-circle', stub: true }
 		]
+	},
+	{
+		title: 'Extend',
+		items: [
+			{ label: 'Extensions', href: '/extensions', icon: 'puzzle', stub: true }
+		]
 	}
 ];
