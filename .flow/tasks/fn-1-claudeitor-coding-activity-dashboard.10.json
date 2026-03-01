@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-01T03:33:13.112413Z",
+  "depends_on": [
+    "fn-1-claudeitor-coding-activity-dashboard.2",
+    "fn-1-claudeitor-coding-activity-dashboard.6"
+  ],
+  "epic": "fn-1-claudeitor-coding-activity-dashboard",
+  "id": "fn-1-claudeitor-coding-activity-dashboard.10",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.10.md",
+  "status": "todo",
+  "title": "Build Costs page with model breakdown and trend charts",
+  "updated_at": "2026-03-01T03:35:59.751861Z"
+}

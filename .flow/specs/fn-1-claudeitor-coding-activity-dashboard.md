@@ -1,273 +1,161 @@
 # Claudeitor: Coding Activity Dashboard
 
-## Problem
+## Overview
 
-There is no unified, visual way to monitor coding and Claude Code agent activities across all projects. Data is scattered across ~/.claude/ config files, git repos, session logs, and cache files. The user needs a real-time web dashboard that aggregates and visualizes this data in one place — replicating and extending the design of an existing reference tool (screenshot provided).
+A localhost-only SvelteKit + Svelte 5 web dashboard that reads from ~/.claude/ and git repos to present a rich, interactive overview of coding activity, session history, costs, repo health, and Claude Code configuration. Single-user, no auth, no deployment.
 
-## Vision
+## Scope
 
-A localhost-only SvelteKit + Svelte 5 web dashboard that reads from the local filesystem (~/.claude/, git repos) and presents a rich, interactive overview of coding activity, session history, costs, repo health, and Claude Code configuration. The dashboard follows the clean-web-design skill for UI and leverages svelte-runes and sveltekit-data-flow skills for implementation.
+### In Scope (V1)
+- **11 full pages**: Readout, Live, Sessions (list + detail/replay), Costs, Repos, Timeline, Skills, Agents, Memory, Hooks, Settings
+- **Stub pages**: Work Graph, Repo Pulse, Diffs, Snapshots, Hygiene, Deps, Worktrees, Env, Lint, Setup, Ports, Extensions
+- **Real-time SSE** on Readout page via sveltekit-sse (Readout only; Live page uses polling)
+- **D3.js interactive charts** (Activity 30d, When You Work, Cost by Model)
+- **Session replay** with scrubable timeline (messages + timestamps core; file diffs best-effort)
+- **AI summaries** via Anthropic SDK (configurable model, cached locally)
+- **Cmd+K command palette** via Bits UI Command component
+- **Snooze-able alerts** for repo hygiene issues
+- **System light/dark theme** via Tailwind v4 CSS-first config
 
-## Stack & Technology Decisions
-
-- **Framework**: SvelteKit + Svelte 5 (runes, $state, $derived, $effect)
-- **Styling**: Tailwind CSS v4 with CSS-first config, @theme directive, HSL custom properties
-- **Theme**: System preference (light/dark) auto-detection
-- **Charts**: D3.js — fully interactive (tooltips, click-to-filter, zoom, brush, linked interactions)
-- **TypeScript**: Strict mode, full type safety
-- **Adapter**: Node adapter (persistent server needed for SSE, file watching, background scanning)
-- **Port**: 5173 (Vite default)
-- **Testing**: Vitest unit tests for data layer
+### Out of Scope
+- Pi-agent extensions (deferred epic)
+- Mobile-first design (responsive but desktop-primary)
+- Multi-user / auth / deployment
+- Database (pure filesystem reads)
 
 ## Architecture
 
-### Clean Separation
+```mermaid
+graph TB
+    subgraph Browser
+        SvelteKit[SvelteKit App]
+        D3[D3.js Charts]
+        SSEClient[SSE Client]
+    end
 
-```
-src/
-├── lib/
-│   ├── data/           # Filesystem scanning, data parsing, cache readers
-│   │   ├── claude/     # ~/.claude/ data readers (sessions, costs, skills, etc.)
-│   │   ├── git/        # Git repo scanning (commits, status, branches)
-│   │   ├── config.ts   # Dashboard config reader
-│   │   └── types.ts    # Shared data types
-│   ├── components/     # Reusable UI components
-│   │   ├── charts/     # D3.js chart components (Activity, HourlyDistribution, CostByModel)
-│   │   ├── cards/      # Dashboard cards (StatCard, AlertCard, SessionCard, etc.)
-│   │   ├── layout/     # Sidebar, CommandPalette, Header
-│   │   └── ui/         # Base UI primitives
-│   ├── stores/         # Svelte stores for shared state
-│   └── utils/          # Formatting, date helpers, etc.
-├── routes/
-│   ├── +layout.svelte  # Main layout with sidebar
-│   ├── +page.svelte    # Readout (main dashboard)
-│   ├── live/           # Active sessions + activity feed
-│   ├── sessions/       # Session history + detail/replay
-│   ├── costs/          # Cost breakdown and analysis
-│   ├── repos/          # Repository details
-│   ├── timeline/       # Activity timeline
-│   ├── skills/         # Skills inventory
-│   ├── agents/         # Agents inventory
-│   ├── memory/         # Memory/CLAUDE.md viewer (read-only)
-│   ├── hooks/          # Hooks configuration viewer
-│   ├── extensions/     # Pi-agent extensions (deferred — stub page)
-│   ├── settings/       # Dashboard settings
-│   └── [stubs]/        # Work Graph, Repo Pulse, Diffs, Snapshots, Hygiene, Deps, Worktrees, Env, Lint
-└── api/
-    └── sse/            # Server-Sent Events endpoint for real-time updates
-```
+    subgraph Server["SvelteKit Server (Node Adapter, 127.0.0.1 only)"]
+        Routes[Route Handlers]
+        SSEEndpoint[SSE Endpoint]
+        FileWatcher[Chokidar Singleton Watcher]
+    end
 
-### Data Strategy
+    subgraph Data["Data Sources"]
+        StatsCache["stats-cache.json"]
+        CostCache["readout-cost-cache.json"]
+        Pricing["readout-pricing.json"]
+        History["history.jsonl"]
+        Settings["settings.json"]
+        Skills["skills/"]
+        Agents["agents/"]
+        Projects["projects/"]
+        GitRepos["Git Repos"]
+    end
 
-1. **Cache-first with fallback**: Read from ~/.claude/stats-cache.json, readout-cost-cache.json, readout-pricing.json when available
-2. **Raw data fallback**: Parse ~/.claude/history.jsonl and per-project session data when caches are missing
-3. **Incremental repo scanning**: Scan a few repos at a time, cache results, skip unchanged repos
-4. **File watching**: Use chokidar or fs.watch to detect changes in ~/.claude/ and trigger SSE updates
-
-### Existing Data Sources (discovered in ~/.claude/)
-
-- `stats-cache.json` — Daily activity data (messageCount, sessionCount, toolCallCount per day)
-- `readout-cost-cache.json` — Per-day, per-model token usage (cacheRead, cacheWrite, input, output)
-- `readout-pricing.json` — Model pricing (input/output/cacheRead/cacheWrite per MTok)
-- `history.jsonl` — Session history (235KB, all sessions)
-- `projects/` — Per-project data directories (72+ projects)
-- `skills/` — Skill directories (50+ skills)
-- `agents/` — Agent markdown files
-- `plugins/` — Plugin config and installed plugins
-- `settings.json` — User settings, hooks, enabled plugins
-- `session-env/` — Per-session environment data
-- `debug/` — Debug logs
-
-### Real-time Updates (SSE)
-
-- **Readout page**: Real-time updates via SSE (alerts, commit counts, active sessions)
-- **Detail pages**: Data fetched on page navigation, not real-time
-- File watcher on ~/.claude/ triggers SSE events for changed data
-
-### Config File
-
-`claudeitor.config.json` in project root:
-```json
-{
-  "repoDirs": ["~/Development/"],
-  "claudeDir": "~/.claude/",
-  "llm": {
-    "provider": "anthropic",
-    "model": "claude-haiku-4-5-20251001",
-    "apiKey": ""
-  },
-  "alerts": {
-    "costThreshold": 100
-  },
-  "refreshInterval": 30
-}
+    SvelteKit --> Routes
+    SSEClient --> SSEEndpoint
+    FileWatcher --> SSEEndpoint
+    Routes --> StatsCache
+    Routes --> CostCache
+    Routes --> Pricing
+    Routes --> History
+    Routes --> Settings
+    Routes --> Skills
+    Routes --> Agents
+    Routes --> Projects
+    Routes --> GitRepos
+    FileWatcher --> StatsCache
+    FileWatcher --> CostCache
+    FileWatcher --> History
 ```
 
-## Readout Page (Main Dashboard) — Detailed Spec
+## Data Strategy
 
-### Header
-- Time-aware greeting: "Morning session, Eric" / "Night session, Eric"
-- AI-generated smart summary of current state (repos, skills, commits today) via Claude API
-- Cached locally to avoid repeated API calls
+1. **Cache-first**: Read stats-cache.json, readout-cost-cache.json, readout-pricing.json
+2. **JSONL fallback**: Parse history.jsonl when caches unavailable
+3. **Model ID mapping** (multi-strategy): exact match, regex extraction, normalization against pricing keys, fallback to raw ID
+4. **Split git caching**: Commit log cached by HEAD hash; working-tree status always refreshed (sub-second git status --porcelain)
+5. **File watching**: Chokidar singleton on globalThis, awaitWriteFinish for atomic reads
+6. **SSE push**: File change events push to Readout page only; Live page uses polling
 
-### Top Stat Cards (4-card row)
-- **Repos** — count from config/scanning
-- **Commits Today** — from git log across all repos
-- **Sessions** — from stats-cache or history.jsonl
-- **Est. Cost** — computed from readout-cost-cache.json + pricing
-- Each card has a **trend indicator** (colored dot) showing up/down vs previous period
+## Security
 
-### Activity Chart (30d)
-- D3.js bar chart showing daily activity over last 30 days
-- Data from stats-cache.json dailyActivity
-- Interactive: hover for tooltips, click to drill into that day, brush to select date range
+- **Server bound to 127.0.0.1** (never 0.0.0.0) in both dev and production
+- **API key server-only**: never returned to client, server exposes hasApiKey boolean only
+- **Config in .gitignore**: claudeitor.config.json contains API key, committed as .example only
+- **No auth needed**: localhost-only, single-user
 
-### When You Work Chart
-- D3.js hourly distribution (24-hour bar chart)
-- Data from git commit timestamps + Claude session timestamps combined
-- Shows when the user is most active
+## Key Technical Decisions
 
-### Cost by Model
-- D3.js horizontal bar chart
-- Data from readout-cost-cache.json aggregated by model
-- Shows per-model cost and total
-- Click to navigate to /costs
+1. sveltekit-sse library for SSE (not raw EventSource)
+2. Bits UI Command for Cmd+K palette (cmdk-sv is deprecated)
+3. D3.js for charts (maximum flexibility, SVG-based)
+4. Chokidar singleton watcher (globalThis guarded, reference-counted connections)
+5. Node adapter (persistent server required for SSE + file watching)
+6. Dashboard state in localStorage (snoozed alerts, chart prefs, theme override)
+7. AI summary cache in ~/.claude/projects/<project>/claudeitor-cache/
+8. Config file: claudeitor.config.json in project root (.gitignored)
+9. Tailwind v4 via @tailwindcss/vite plugin with @import, @source, @theme directives
+10. Split git caching: expensive data by HEAD, cheap working-tree always fresh
+11. Live page polling (not SSE) to contain SSE scope
+12. Session replay MVP: messages + timestamps core, file diffs best-effort
 
-### Recent Sessions
-- List of last 3-5 sessions with description, repo link, time ago
-- Click to navigate to /sessions/:id
+## Risks & Mitigations
 
-### Alert Notifications
-- Hygiene issues (computed from repo scanning)
-- Uncommitted files count per repo
-- Unpushed commits per repo
-- **Snooze-able** — can snooze for 1hr, 1 day, etc.
+| Risk | Mitigation |
+|------|-----------|
+| Model ID mapping breaks on new models | Multi-strategy: exact, regex, normalization, fallback |
+| Concurrent cache writes corrupt reads | Chokidar awaitWriteFinish + JSON parse try/catch |
+| Large session files crash replay | Chunked/streaming reads, pagination |
+| ~/.claude/ format changes | Version detection, graceful degradation per-feature |
+| Active session detection fragile | Combine process detection + file timestamp heuristics |
+| LAN exposure of sensitive data | Server bound to 127.0.0.1, API key server-only |
+| Duplicate watchers on HMR | globalThis singleton with reference counting |
 
-### Recently Active
-- Chips/badges showing recently active repos with combined activity score
-- Activity score = commits + sessions + file changes
+## Quick Commands
 
-### Bottom Cards (4-card row)
-- **Skills** — list with count, links to /skills
-- **Agents** — list or "no agents found", links to /agents
-- **Memory** — CLAUDE.md entries with line counts, links to /memory (read-only)
-- **Repos** — repo list with skill counts, links to /repos
+```bash
+# Install dependencies
+pnpm install
 
-### Footer
-- Plugin and hook counts
+# Dev server
+pnpm dev
 
-## Session Detail & Replay
+# Type check
+pnpm check
 
-When clicking a session from Recent Sessions or the Sessions page:
+# Run tests
+pnpm test
 
-### Session Summary
-- **Metadata**: Duration, model used, tokens consumed, cost, files touched
-- **AI-generated narrative summary**: Sent via Claude API (configurable model), cached locally in project data dir
-
-### Session Replay
-- **Scrubable timeline** at the bottom of the page
-- Full transcript with timestamps
-- Scrub to any point to see conversation state at that moment
-- See file diffs at each step of the conversation
-
-## Navigation
-
-### Sidebar Sections
-- **Overview**: Readout
-- **Monitor**: Live, Sessions, Costs, Setup, Ports (Setup/Ports = stubs)
-- **Workspace**: Repos, Work Graph*, Repo Pulse*, Timeline, Diffs*, Snapshots*
-- **Config**: Skills, Agents, Memory, Hooks
-- **Health**: Hygiene*, Deps*, Worktrees*, Env*, Lint*
-- **Settings** (bottom)
-
-*Stub pages showing "Coming Soon" placeholder
-
-### Command Palette (Cmd+K)
-- Quick navigation to any page, repo, session, or skill
-- Fuzzy search across all dashboard entities
-
-## Pages to Build (V1)
-
-### Full Implementation
-1. **Readout** — Main dashboard (screenshot spec above)
-2. **Live** — Active Claude sessions panel + real-time activity feed
-3. **Sessions** — Session history list with search/filter + session detail with summary + replay
-4. **Costs** — Cost breakdown by model, by day, by repo; trend charts
-5. **Repos** — Repository list with health status, git stats, skill count
-6. **Timeline** — Chronological activity view across all repos
-7. **Skills** — Skills inventory with descriptions
-8. **Agents** — Agents inventory
-9. **Memory** — CLAUDE.md file viewer (read-only)
-10. **Hooks** — Hook configuration viewer
-11. **Settings** — API key, repo dirs, theme, model selection, cost thresholds, chart prefs, notification settings
-
-### Stub Pages
-- Work Graph, Repo Pulse, Diffs, Snapshots, Hygiene, Deps, Worktrees, Env, Lint, Setup, Ports, Extensions (pi-agent — deferred)
-
-## Key Decisions
-
-1. **Local filesystem reads** — No backend API or database, reads directly from ~/.claude/ and git repos
-2. **Localhost only** — No auth, no deployment concerns, single-user
-3. **SSE for real-time** — Server-Sent Events (simpler than WebSockets, one-way push)
-4. **D3.js for charts** — Maximum flexibility, SVG-based, fully interactive
-5. **Cache-first data strategy** — Use existing cache files, fall back to raw data parsing
-6. **Incremental repo scanning** — Scan progressively, cache results, don't re-scan unchanged
-7. **Anthropic-only LLM** — For smart summaries and session summaries, configurable model
-8. **Node adapter** — Required for persistent server (SSE, file watching)
-9. **Tailwind v4** — CSS-first config with @theme directive, system light/dark preference
-10. **Responsive grid** — Adapts to screen sizes, same general structure as screenshot
-11. **All separate routes** — Each sidebar item = its own route
-12. **Trend indicators** — Stat card dots show up/down vs previous period
-13. **Snooze-able alerts** — Alerts can be snoozed for configurable periods
-14. **Sub-2-second load** — Use caches and progressive loading to keep initial load fast
-15. **Pi-agent extensions** — Deferred to a separate epic
-16. **Project name** — TBD (using "claudeitor" as working name)
-
-## Edge Cases
-
-- Empty state: New install with no sessions/repos — show guidance messages
-- Missing cache files: Fall back to raw data parsing gracefully
-- Large repos: Timeout and skip repos that are slow to scan
-- Stale cache: Detect when cache is outdated vs raw data
-- Session data format changes: Handle version differences in history.jsonl
-- No API key configured: Disable AI summary features, show setup prompt
-- Very long sessions: Session replay with thousands of messages — virtualize the list
-- Concurrent Claude sessions: Multiple active sessions updating data simultaneously
-- Repo path changes: Config lists a directory that no longer exists
-- Permission errors: ~/.claude/ files might not be readable
-
-## Open Questions
-
-- Exact session replay data format — need to explore ~/.claude/session data structure more deeply
-- "Live" page implementation — how to detect currently running Claude processes
-- How does the reference tool compute "hygiene issues"?
-- Exact format of session transcripts in history.jsonl for replay
-- Pi-agent extension system details (deferred)
-- Final project name
+# Build
+pnpm build
+```
 
 ## Acceptance
 
-- [ ] SvelteKit + Svelte 5 project scaffolded with Tailwind v4, D3.js, TypeScript strict
-- [ ] Readout page matches the screenshot layout with responsive grid
-- [ ] Top stat cards show real data from ~/.claude/ with trend indicators
-- [ ] Activity (30d) chart renders interactive D3.js bar chart from stats-cache.json
-- [ ] When You Work chart shows hourly distribution from git + session data
-- [ ] Cost by Model chart shows per-model costs from cost cache + pricing
-- [ ] Recent Sessions card shows real sessions with repo links
-- [ ] Alert notifications computed from repo scanning (uncommitted files, unpushed commits)
-- [ ] Alerts are snooze-able
-- [ ] Recently Active shows repos with combined activity scores
-- [ ] Bottom cards (Skills, Agents, Memory, Repos) show real data from ~/.claude/
-- [ ] SSE endpoint pushes real-time updates to Readout page
-- [ ] All 11 full pages implemented with real data
-- [ ] All stub pages show "Coming Soon" placeholder
-- [ ] Sidebar navigation with all sections and items
-- [ ] Command palette (Cmd+K) with fuzzy search
-- [ ] Session detail page with metadata + AI summary (cached)
-- [ ] Session replay with scrubable timeline
-- [ ] Settings page with API key, repo dirs, theme, model, cost thresholds
-- [ ] System light/dark theme support
-- [ ] Config file (claudeitor.config.json) for repo dirs and settings
+- [ ] SvelteKit + Svelte 5 project with Tailwind v4 (@tailwindcss/vite), D3.js, TypeScript strict
+- [ ] Server bound to 127.0.0.1 in dev and production
+- [ ] Readout page with responsive grid matching reference screenshot
+- [ ] Top stat cards with real data and trend indicators
+- [ ] Activity (30d), When You Work, Cost by Model charts (interactive D3.js)
+- [ ] Recent Sessions with real data from history.jsonl
+- [ ] Snooze-able alerts for hygiene issues
+- [ ] SSE real-time updates on Readout page (singleton watcher)
+- [ ] All 11 full pages with real data
+- [ ] All stub pages with Coming Soon placeholder
+- [ ] Sidebar navigation with all sections
+- [ ] Cmd+K command palette with fuzzy search
+- [ ] Session detail with metadata + AI summary (cached, server-only API key)
+- [ ] Session replay with scrubable timeline (messages core, diffs best-effort)
+- [ ] Settings page (API key server-only, repo dirs, theme, model, cost thresholds)
+- [ ] System light/dark theme
+- [ ] Config file (.gitignored, .example committed)
 - [ ] Vitest unit tests for data layer
-- [ ] Empty states with guidance for missing data
-- [ ] Sub-2-second initial page load using caches
+- [ ] Empty states with guidance
+- [ ] Cache-first loading: no full history parsing when caches present
+
+## References
+
+- Spec: .flow/specs/fn-1-claudeitor-coding-activity-dashboard.md
+- Reference SvelteKit project: ~/Development/code/Hasura/PromptQL-Code/ThreadErrorAnalyzer/
+- User skills: svelte-runes, sveltekit-data-flow, tailwind-v4-shadcn, d3js, clean-web-design
+- Data sources: ~/.claude/stats-cache.json, readout-cost-cache.json, readout-pricing.json, history.jsonl
