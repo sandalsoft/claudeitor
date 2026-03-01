@@ -39,7 +39,21 @@
 		return parts[parts.length - 1] || projectPath;
 	}
 
-	const timeAgo = $derived(formatRelativeTime(timestamp));
+	// Tick counter to force relative time re-computation every 60s
+	let tick = $state(0);
+
+	$effect(() => {
+		const interval = setInterval(() => {
+			tick += 1;
+		}, 60_000);
+		return () => clearInterval(interval);
+	});
+
+	// Use tick in derived to trigger recalculation
+	const timeAgo = $derived.by(() => {
+		void tick;
+		return formatRelativeTime(timestamp);
+	});
 	const repoName = $derived(project ? extractRepoName(project) : undefined);
 </script>
 

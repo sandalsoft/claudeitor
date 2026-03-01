@@ -28,6 +28,14 @@
 		{ label: '1 week', value: '1w', ms: 7 * 24 * 60 * 60 * 1000 }
 	];
 
+	function safeStorageWrite(key: string, value: string): void {
+		try {
+			localStorage.setItem(key, value);
+		} catch {
+			// Storage unavailable (private browsing, quota exceeded) -- best-effort
+		}
+	}
+
 	function getSnoozedAlerts(): Record<string, number> {
 		try {
 			const raw = localStorage.getItem(SNOOZE_KEY);
@@ -38,35 +46,57 @@
 		}
 	}
 
-	function isSnoozed(): boolean {
+	function getSnoozeRemaining(): number {
 		const snoozed = getSnoozedAlerts();
 		const until = snoozed[id];
-		if (!until) return false;
-		if (Date.now() >= until) {
+		if (!until) return 0;
+		const remaining = until - Date.now();
+		if (remaining <= 0) {
 			// Snooze expired, clean up
 			delete snoozed[id];
-			localStorage.setItem(SNOOZE_KEY, JSON.stringify(snoozed));
-			return false;
+			safeStorageWrite(SNOOZE_KEY, JSON.stringify(snoozed));
+			return 0;
 		}
-		return true;
+		return remaining;
 	}
 
 	function snooze(duration: SnoozeDuration) {
 		const entry = snoozeDurations.find((d) => d.value === duration);
 		if (!entry) return;
 		const snoozed = getSnoozedAlerts();
-		snoozed[id] = Date.now() + entry.ms;
-		localStorage.setItem(SNOOZE_KEY, JSON.stringify(snoozed));
+		const until = Date.now() + entry.ms;
+		snoozed[id] = until;
+		safeStorageWrite(SNOOZE_KEY, JSON.stringify(snoozed));
 		snoozeMenuOpen = false;
 		snoozedState = true;
+
+		// Schedule auto-restore when snooze expires
+		scheduleRestore(entry.ms);
+	}
+
+	function scheduleRestore(ms: number) {
+		if (restoreTimer) clearTimeout(restoreTimer);
+		// Cap at 2^31-1 ms (max setTimeout) to avoid overflow
+		const safeMs = Math.min(ms, 2_147_483_647);
+		restoreTimer = setTimeout(() => {
+			snoozedState = false;
+		}, safeMs);
 	}
 
 	let snoozedState = $state(false);
 	let snoozeMenuOpen = $state(false);
+	let restoreTimer: ReturnType<typeof setTimeout> | null = null;
 
-	// Check snooze status on mount
+	// Check snooze status on mount, schedule auto-restore if snoozed
 	$effect(() => {
-		snoozedState = isSnoozed();
+		const remaining = getSnoozeRemaining();
+		snoozedState = remaining > 0;
+		if (remaining > 0) {
+			scheduleRestore(remaining);
+		}
+		return () => {
+			if (restoreTimer) clearTimeout(restoreTimer);
+		};
 	});
 
 	const severityBase: Record<Severity, { bg: string; border: string; defaultIcon: string; iconColor: string }> = {

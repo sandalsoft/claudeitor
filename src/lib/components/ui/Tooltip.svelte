@@ -14,6 +14,9 @@
 
 	let visible = $state(false);
 
+	// Unique ID for aria-describedby association
+	const tooltipId = `tooltip-${crypto.randomUUID().slice(0, 8)}`;
+
 	const positionClasses: Record<Position, string> = {
 		top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
 		bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
@@ -32,6 +35,7 @@
 <div
 	class="relative inline-flex {className}"
 	role="group"
+	aria-describedby={visible && text ? tooltipId : undefined}
 	onmouseenter={() => (visible = true)}
 	onmouseleave={() => (visible = false)}
 	onfocusin={() => (visible = true)}
@@ -41,6 +45,7 @@
 
 	{#if visible && text}
 		<div
+			id={tooltipId}
 			class="pointer-events-none absolute z-50 {positionClasses[position]}"
 			role="tooltip"
 		>
