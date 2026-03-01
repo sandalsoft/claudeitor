@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { AgentInfo } from '../../data/types.js';
 import { withSpan } from '../telemetry/span-helpers.js';
+import { warn } from '../telemetry/logger.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -74,10 +75,10 @@ export async function readAgents(claudeDir = DEFAULT_CLAUDE_DIR): Promise<AgentI
 							color: attrs['color'] || undefined
 						});
 					} catch (readErr) {
-						console.warn(
-							`[agents] Failed to read agent file "${entry.name}":`,
-							(readErr as Error).message
-						);
+						warn('agents', `Failed to read agent file "${entry.name}"`, {
+							'error.type': (readErr as Error).name,
+							'error.stack': (readErr as Error).stack
+						});
 					}
 				}
 
@@ -86,7 +87,10 @@ export async function readAgents(claudeDir = DEFAULT_CLAUDE_DIR): Promise<AgentI
 				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 					return [];
 				}
-				console.warn('[agents] Failed to read agents directory:', (err as Error).message);
+				warn('agents', 'Failed to read agents directory', {
+					'error.type': (err as Error).name,
+					'error.stack': (err as Error).stack
+				});
 				return [];
 			}
 		}

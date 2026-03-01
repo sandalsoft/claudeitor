@@ -4,6 +4,7 @@ import { join, basename } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoCommit, RepoInfo, GitScanResult } from './types.js';
 import { withSpan } from '../telemetry/span-helpers.js';
+import { warn } from '../telemetry/logger.js';
 
 const execAsync = promisify(exec);
 const GIT_TIMEOUT_MS = 10_000;
@@ -23,7 +24,11 @@ async function gitExec(cwd: string, args: string): Promise<string | null> {
 	} catch (err) {
 		const msg = (err as Error).message;
 		if (msg.includes('TIMEOUT') || msg.includes('timed out')) {
-			console.warn(`[git] Timeout executing "git ${args}" in ${cwd}`);
+			warn('git', `Timeout executing "git ${args}" in ${cwd}`, {
+				'git.command': args,
+				'git.cwd': cwd,
+				'error.type': 'TimeoutError'
+			});
 		}
 		return null;
 	}
@@ -163,11 +168,11 @@ export async function getRepoInfo(repoPath: string): Promise<RepoInfo | null> {
 	let branch: string;
 
 	if (cached && cached.headHash === headHash) {
-		// HEAD unchanged — reuse cached expensive data
+		// HEAD unchanged -- reuse cached expensive data
 		commits = cached.commits;
 		branch = cached.branch;
 	} else {
-		// HEAD changed or first scan — refresh expensive data
+		// HEAD changed or first scan -- refresh expensive data
 		[commits, branch] = await Promise.all([getRecentCommits(repoPath), getCurrentBranch(repoPath)]);
 		commitCache.set(cacheKey, { headHash, commits, branch });
 	}

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { CostCache, PricingData } from '../../data/types.js';
 import { withSpan } from '../telemetry/span-helpers.js';
+import { warn } from '../telemetry/logger.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -29,7 +30,10 @@ export async function readCostCache(claudeDir = DEFAULT_CLAUDE_DIR): Promise<Cos
 				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 					return emptyCostCache();
 				}
-				console.warn('[costs] Failed to parse readout-cost-cache.json:', (err as Error).message);
+				warn('costs', 'Failed to parse readout-cost-cache.json', {
+					'error.type': (err as Error).name,
+					'error.stack': (err as Error).stack
+				});
 				return emptyCostCache();
 			}
 		}
@@ -51,7 +55,10 @@ export async function readPricing(claudeDir = DEFAULT_CLAUDE_DIR): Promise<Prici
 				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 					return emptyPricing();
 				}
-				console.warn('[costs] Failed to parse readout-pricing.json:', (err as Error).message);
+				warn('costs', 'Failed to parse readout-pricing.json', {
+					'error.type': (err as Error).name,
+					'error.stack': (err as Error).stack
+				});
 				return emptyPricing();
 			}
 		}

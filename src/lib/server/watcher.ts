@@ -21,6 +21,7 @@ import { readStatsCache } from './claude/stats.js';
 import { readCostCache } from './claude/costs.js';
 import { readSessionHistory } from './claude/sessions.js';
 import type { StatsCache, CostCache, SessionEntry } from '../data/types.js';
+import { info, warn } from './telemetry/logger.js';
 
 // ─── SSE Event Types ─────────────────────────────────────────
 
@@ -136,12 +137,19 @@ function emitFileChange(instance: WatcherInstance, changedPath: string): void {
 				try {
 					listener(event);
 				} catch (err) {
-					console.warn('[watcher] Listener error:', formatError(err));
+					warn('watcher', 'Listener error', {
+						'error.type': err instanceof Error ? err.name : 'unknown',
+						'error.stack': err instanceof Error ? err.stack : undefined
+					});
 				}
 			}
 		})
 		.catch((err: unknown) => {
-			console.warn(`[watcher] Failed to read ${file} after change:`, formatError(err));
+			warn('watcher', `Failed to read ${file} after change`, {
+				'watcher.file': file,
+				'error.type': err instanceof Error ? (err as Error).name : 'unknown',
+				'error.stack': err instanceof Error ? (err as Error).stack : undefined
+			});
 		});
 }
 
@@ -149,7 +157,9 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 	// Verify the directory exists before setting up the watcher.
 	// Log a clear warning so "SSE connected but never updates" is diagnosable.
 	if (!existsSync(claudeDir)) {
-		console.warn(`[watcher] Directory does not exist: ${claudeDir} -- file watching will not produce events until it is created`);
+		warn('watcher', `Directory does not exist: ${claudeDir} -- file watching will not produce events until it is created`, {
+			'watcher.dir': claudeDir
+		});
 	}
 
 	// Watch the directory and filter events by basename. This is more
@@ -177,7 +187,7 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 	// - 'change': normal file modification
 	// - 'add': atomic write patterns (write temp + rename) and new files
 	// We intentionally skip 'unlink' because atomic writes (common in
-	// Claude's cache updates) emit unlink→add sequences. The unlink fires
+	// Claude's cache updates) emit unlink->add sequences. The unlink fires
 	// immediately (bypasses awaitWriteFinish), causing a spurious read of
 	// empty/default data before the add arrives with the real update.
 	// matchWatchedFile() filters to only our target files.
@@ -186,10 +196,15 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 	fsWatcher.on('add', handleFileEvent);
 
 	fsWatcher.on('error', (err: unknown) => {
-		console.warn('[watcher] Chokidar error:', formatError(err));
+		warn('watcher', 'Chokidar error', {
+			'error.type': err instanceof Error ? err.name : 'unknown',
+			'error.stack': err instanceof Error ? err.stack : undefined
+		});
 	});
 
-	console.log('[watcher] Created singleton file watcher for', claudeDir);
+	info('watcher', `Created singleton file watcher for ${claudeDir}`, {
+		'watcher.dir': claudeDir
+	});
 	return instance;
 }
 
@@ -210,7 +225,7 @@ function registerShutdownHooks(): void {
 				// Swallow errors during shutdown
 			});
 			globalThis.__claudeitorWatcher = undefined;
-			console.log('[watcher] Cleaned up on process shutdown');
+			info('watcher', 'Cleaned up on process shutdown');
 		}
 	};
 
@@ -223,9 +238,10 @@ function ensureInstance(claudeDir: string): WatcherInstance {
 	const existing = globalThis.__claudeitorWatcher;
 	if (existing) {
 		if (existing.claudeDir !== claudeDir) {
-			console.warn(
-				`[watcher] Singleton already watching "${existing.claudeDir}", ignoring request for "${claudeDir}"`
-			);
+			warn('watcher', `Singleton already watching "${existing.claudeDir}", ignoring request for "${claudeDir}"`, {
+				'watcher.existing_dir': existing.claudeDir,
+				'watcher.requested_dir': claudeDir
+			});
 		}
 		return existing;
 	}
@@ -302,9 +318,12 @@ export async function destroyWatcher(): Promise<void> {
 
 	try {
 		await instance.watcher.close();
-		console.log('[watcher] Destroyed singleton file watcher');
+		info('watcher', 'Destroyed singleton file watcher');
 	} catch (err) {
-		console.warn('[watcher] Error closing watcher:', formatError(err));
+		warn('watcher', 'Error closing watcher', {
+			'error.type': err instanceof Error ? err.name : 'unknown',
+			'error.stack': err instanceof Error ? err.stack : undefined
+		});
 	}
 }
 

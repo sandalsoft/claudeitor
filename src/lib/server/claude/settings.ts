@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { SettingsData } from '../../data/types.js';
 import { withSpan } from '../telemetry/span-helpers.js';
+import { warn } from '../telemetry/logger.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -25,7 +26,10 @@ export async function readSettings(claudeDir = DEFAULT_CLAUDE_DIR): Promise<Sett
 				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 					return emptySettings();
 				}
-				console.warn('[settings] Failed to parse settings.json:', (err as Error).message);
+				warn('settings', 'Failed to parse settings.json', {
+					'error.type': (err as Error).name,
+					'error.stack': (err as Error).stack
+				});
 				return emptySettings();
 			}
 		}

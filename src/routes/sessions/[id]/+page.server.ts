@@ -8,6 +8,7 @@ import {
 	type AISummary
 } from '$lib/server/claude/session-detail';
 import { withSpan } from '$lib/server/telemetry/span-helpers';
+import { warn } from '$lib/server/telemetry/logger';
 
 export const load: PageServerLoad = async ({ params }) => {
 	return withSpan(
@@ -105,7 +106,11 @@ export const actions: Actions = {
 			return { success: true, summary };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Unknown error';
-			console.warn('[session-summary] AI summary generation failed:', message);
+			warn('session-summary', 'AI summary generation failed', {
+				'error.type': err instanceof Error ? err.name : 'unknown',
+				'error.stack': err instanceof Error ? err.stack : undefined,
+				'session.id': sessionId
+			});
 			return { success: false, error: `Failed to generate summary: ${message}` };
 		}
 	}

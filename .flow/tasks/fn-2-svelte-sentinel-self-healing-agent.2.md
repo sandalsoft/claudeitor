@@ -75,9 +75,8 @@ Add OTel spans to all 13 server load functions (12 pages + 1 layout) and 14 libr
 <!-- Updated by plan-sync: fn-2-svelte-sentinel-self-healing-agent.1 - added explicit import path for withSpan -->
 
 ## Done summary
-TBD
-
+Instrumented all 13 server load functions and 14 library-level operations with OTel spans using the withSpan helper from task 1. Load functions use `load:<route>` naming with `http.route` attributes; library operations use `op:<function>` naming with `data.source` or `op.type` attributes. All spans include `code.filepath`. Nested calls produce proper parent-child hierarchy via AsyncLocalStorage context propagation. Form actions and API handlers intentionally not instrumented (V2 scope).
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 571f0e5bdd6f9067a118b03af31aa2861777d8de
+- Tests: pnpm check (0 errors), pnpm test (97 tests passed), pnpm build (success)
 - PRs:

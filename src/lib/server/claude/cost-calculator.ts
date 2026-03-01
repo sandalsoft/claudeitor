@@ -1,6 +1,7 @@
 import type { CostCache, PricingData, ModelPricing, TokenUsage } from '../../data/types.js';
 import { mapModelId } from './model-mapping.js';
 import { withSpan } from '../telemetry/span-helpers.js';
+import { warn } from '../telemetry/logger.js';
 
 export interface ModelCost {
 	modelId: string;
@@ -144,7 +145,9 @@ function calculateCostsImpl(costCache: CostCache, pricing: PricingData): CostSum
 
 	// Warn about unknown models
 	for (const model of unknownModels) {
-		console.warn(`[cost-calculator] No pricing found for model "${model}", showing $0 cost`);
+		warn('cost-calculator', `No pricing found for model "${model}", showing $0 cost`, {
+			'model.id': model
+		});
 	}
 
 	const byModel: ModelCost[] = [];

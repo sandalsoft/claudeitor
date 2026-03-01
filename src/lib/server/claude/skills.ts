@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { SkillInfo } from '../../data/types.js';
 import { withSpan } from '../telemetry/span-helpers.js';
+import { warn } from '../telemetry/logger.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -105,7 +106,10 @@ export async function readSkills(claudeDir = DEFAULT_CLAUDE_DIR): Promise<SkillI
 				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 					return [];
 				}
-				console.warn('[skills] Failed to read skills directory:', (err as Error).message);
+				warn('skills', 'Failed to read skills directory', {
+					'error.type': (err as Error).name,
+					'error.stack': (err as Error).stack
+				});
 				return [];
 			}
 		}

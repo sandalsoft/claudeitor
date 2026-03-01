@@ -140,7 +140,8 @@ describe('readStatsCache', () => {
 	});
 
 	it('returns empty defaults for malformed JSON', async () => {
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		// Logger writes WARN to stdout via process.stdout.write
+		const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 		const malformedDir = await mkdtemp(join(tmpdir(), 'claudeitor-malformed-stats-'));
 		try {
 			await writeFile(join(malformedDir, 'stats-cache.json'), '{invalid json content!!!}');
@@ -148,12 +149,11 @@ describe('readStatsCache', () => {
 			expect(stats.version).toBe(0);
 			expect(stats.dailyActivity).toEqual([]);
 			expect(stats.totalSessions).toBe(0);
-			expect(warnSpy).toHaveBeenCalledWith(
-				expect.stringContaining('[stats]'),
-				expect.any(String)
+			expect(stdoutSpy).toHaveBeenCalledWith(
+				expect.stringContaining('[stats]')
 			);
 		} finally {
-			warnSpy.mockRestore();
+			stdoutSpy.mockRestore();
 			await rm(malformedDir, { recursive: true, force: true });
 		}
 	});
@@ -199,19 +199,18 @@ describe('readCostCache', () => {
 	});
 
 	it('returns empty defaults for malformed JSON', async () => {
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 		const malformedDir = await mkdtemp(join(tmpdir(), 'claudeitor-malformed-costs-'));
 		try {
 			await writeFile(join(malformedDir, 'readout-cost-cache.json'), 'not json at all');
 			const costs = await readCostCache(malformedDir);
 			expect(costs.days).toEqual({});
 			expect(costs.version).toBe(0);
-			expect(warnSpy).toHaveBeenCalledWith(
-				expect.stringContaining('[costs]'),
-				expect.any(String)
+			expect(stdoutSpy).toHaveBeenCalledWith(
+				expect.stringContaining('[costs]')
 			);
 		} finally {
-			warnSpy.mockRestore();
+			stdoutSpy.mockRestore();
 			await rm(malformedDir, { recursive: true, force: true });
 		}
 	});
@@ -239,19 +238,18 @@ describe('readPricing', () => {
 	});
 
 	it('returns empty defaults for malformed JSON', async () => {
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 		const malformedDir = await mkdtemp(join(tmpdir(), 'claudeitor-malformed-pricing-'));
 		try {
 			await writeFile(join(malformedDir, 'readout-pricing.json'), '<<<broken>>>');
 			const pricing = await readPricing(malformedDir);
 			expect(pricing.models).toEqual({});
 			expect(pricing.updated).toBe('');
-			expect(warnSpy).toHaveBeenCalledWith(
-				expect.stringContaining('[costs]'),
-				expect.any(String)
+			expect(stdoutSpy).toHaveBeenCalledWith(
+				expect.stringContaining('[costs]')
 			);
 		} finally {
-			warnSpy.mockRestore();
+			stdoutSpy.mockRestore();
 			await rm(malformedDir, { recursive: true, force: true });
 		}
 	});
@@ -289,7 +287,7 @@ describe('readSessionHistory', () => {
 	});
 
 	it('returns empty array when all lines are malformed', async () => {
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 		const badDir = await mkdtemp(join(tmpdir(), 'claudeitor-bad-sessions-'));
 		try {
 			await writeFile(
@@ -298,11 +296,11 @@ describe('readSessionHistory', () => {
 			);
 			const sessions = await readSessionHistory(badDir);
 			expect(sessions).toEqual([]);
-			expect(warnSpy).toHaveBeenCalledWith(
+			expect(stdoutSpy).toHaveBeenCalledWith(
 				expect.stringContaining('[sessions]')
 			);
 		} finally {
-			warnSpy.mockRestore();
+			stdoutSpy.mockRestore();
 			await rm(badDir, { recursive: true, force: true });
 		}
 	});
@@ -371,19 +369,18 @@ describe('readSettings', () => {
 	});
 
 	it('returns empty defaults for malformed JSON', async () => {
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 		const malformedDir = await mkdtemp(join(tmpdir(), 'claudeitor-malformed-settings-'));
 		try {
 			await writeFile(join(malformedDir, 'settings.json'), '{malformed!!!}');
 			const settings = await readSettings(malformedDir);
 			expect(settings.model).toBe('');
 			expect(settings.enabledPlugins).toEqual({});
-			expect(warnSpy).toHaveBeenCalledWith(
-				expect.stringContaining('[settings]'),
-				expect.any(String)
+			expect(stdoutSpy).toHaveBeenCalledWith(
+				expect.stringContaining('[settings]')
 			);
 		} finally {
-			warnSpy.mockRestore();
+			stdoutSpy.mockRestore();
 			await rm(malformedDir, { recursive: true, force: true });
 		}
 	});

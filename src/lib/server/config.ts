@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { withSpan } from './telemetry/span-helpers.js';
+import { warn } from './telemetry/logger.js';
 
 export interface ClaudeitorConfig {
 	claudeDir: string;
@@ -75,10 +76,10 @@ export async function readConfig(projectRoot?: string): Promise<ClaudeitorConfig
 				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 					return defaults;
 				}
-				console.warn(
-					'[config] Failed to parse claudeitor.config.json:',
-					(err as Error).message
-				);
+				warn('config', 'Failed to parse claudeitor.config.json', {
+					'error.type': (err as Error).name,
+					'error.stack': (err as Error).stack
+				});
 				return defaults;
 			}
 		}

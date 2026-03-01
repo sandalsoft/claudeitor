@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { readConfig, writeConfig, defaultConfig, expandTilde } from '$lib/server/config';
 import { readPricing } from '$lib/server/claude/costs';
+import { error as logError } from '$lib/server/telemetry/logger';
 
 /**
  * GET /api/settings
@@ -102,7 +103,10 @@ export const POST: RequestHandler = async ({ request }) => {
 			themeOverride: newConfig.themeOverride
 		});
 	} catch (err) {
-		console.error('[api/settings] Failed to write config:', (err as Error).message);
+		logError('api/settings', 'Failed to write config', {
+			'error.type': (err as Error).name,
+			'error.stack': (err as Error).stack
+		});
 		return json({ success: false, error: 'Failed to save settings' }, { status: 500 });
 	}
 };

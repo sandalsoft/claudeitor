@@ -9,6 +9,7 @@
 
 import { produce } from 'sveltekit-sse';
 import { subscribe, type SSEEvent } from '$lib/server/watcher.js';
+import { warn } from '$lib/server/telemetry/logger.js';
 import type { RequestHandler } from './$types';
 
 function createSSEResponse(): Response {
@@ -31,10 +32,10 @@ function createSSEResponse(): Response {
 				try {
 					payload = JSON.stringify(event);
 				} catch (err) {
-					console.warn(
-						'[sse] Failed to serialize event:',
-						err instanceof Error ? err.message : String(err)
-					);
+					warn('sse', 'Failed to serialize event', {
+						'error.type': err instanceof Error ? err.name : 'unknown',
+						'error.stack': err instanceof Error ? err.stack : undefined
+					});
 					cleanup();
 					return;
 				}

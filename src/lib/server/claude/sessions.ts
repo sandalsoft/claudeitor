@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { SessionEntry } from '../../data/types.js';
 import { withSpan } from '../telemetry/span-helpers.js';
+import { warn } from '../telemetry/logger.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -31,9 +32,9 @@ export async function readSessionHistory(claudeDir = DEFAULT_CLAUDE_DIR): Promis
 				}
 
 				if (malformedCount > 0) {
-					console.warn(
-						`[sessions] Skipped ${malformedCount} malformed line(s) in history.jsonl`
-					);
+					warn('sessions', `Skipped ${malformedCount} malformed line(s) in history.jsonl`, {
+						'data.malformed_count': malformedCount
+					});
 				}
 
 				return entries;
@@ -41,7 +42,10 @@ export async function readSessionHistory(claudeDir = DEFAULT_CLAUDE_DIR): Promis
 				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 					return [];
 				}
-				console.warn('[sessions] Failed to read history.jsonl:', (err as Error).message);
+				warn('sessions', 'Failed to read history.jsonl', {
+					'error.type': (err as Error).name,
+					'error.stack': (err as Error).stack
+				});
 				return [];
 			}
 		}

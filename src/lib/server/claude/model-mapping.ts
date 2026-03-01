@@ -1,5 +1,6 @@
 import type { PricingData } from '../../data/types.js';
 import { withSpan } from '../telemetry/span-helpers.js';
+import { warn } from '../telemetry/logger.js';
 
 /**
  * Multi-strategy model ID mapping.
@@ -26,7 +27,7 @@ function stripPrefixAndDate(modelId: string): string {
 
 /**
  * Tokenize a model name into comparable parts.
- * "opus-4-5" → ["opus", "4", "5"]
+ * "opus-4-5" -> ["opus", "4", "5"]
  */
 function tokenize(name: string): string[] {
 	return name.split('-').filter(Boolean);
@@ -34,8 +35,8 @@ function tokenize(name: string): string[] {
 
 /**
  * Extract version tokens (numeric parts) from a token array.
- * E.g. ["opus", "4", "5"] → ["4", "5"]
- *      ["3", "5", "sonnet"] → ["3", "5"]
+ * E.g. ["opus", "4", "5"] -> ["4", "5"]
+ *      ["3", "5", "sonnet"] -> ["3", "5"]
  */
 function extractVersion(tokens: string[]): string[] {
 	return tokens.filter((t) => /^\d+$/.test(t));
@@ -43,8 +44,8 @@ function extractVersion(tokens: string[]): string[] {
 
 /**
  * Extract non-numeric tokens (family/qualifier names).
- * E.g. ["opus", "4", "5"] → ["opus"]
- *      ["3", "5", "sonnet"] → ["sonnet"]
+ * E.g. ["opus", "4", "5"] -> ["opus"]
+ *      ["3", "5", "sonnet"] -> ["sonnet"]
  */
 function extractFamilyTokens(tokens: string[]): string[] {
 	return tokens.filter((t) => !/^\d+$/.test(t));
@@ -99,7 +100,9 @@ export function mapModelId(modelId: string, pricing: PricingData | null): string
 
 			// Don't cache when pricing is unavailable (fallback results shouldn't stick)
 			if (!pricing || Object.keys(pricing.models).length === 0) {
-				console.warn(`[model-mapping] No pricing data, returning raw ID: "${modelId}"`);
+				warn('model-mapping', `No pricing data, returning raw ID: "${modelId}"`, {
+					'model.id': modelId
+				});
 				return modelId;
 			}
 
@@ -121,7 +124,7 @@ export function mapModelId(modelId: string, pricing: PricingData | null): string
 				return stripped;
 			}
 
-			// Strategy 3: Strict normalization — require shared family token AND exact version match
+			// Strategy 3: Strict normalization -- require shared family token AND exact version match
 			const strippedTokens = tokenize(stripped);
 			const inputFamilyTokens = extractFamilyTokens(strippedTokens);
 			const inputVersion = extractVersion(strippedTokens);
@@ -147,8 +150,10 @@ export function mapModelId(modelId: string, pricing: PricingData | null): string
 				}
 			}
 
-			// Strategy 4: Fallback — return raw ID, log warning
-			console.warn(`[model-mapping] Unknown model ID, no pricing match: "${modelId}"`);
+			// Strategy 4: Fallback -- return raw ID, log warning
+			warn('model-mapping', `Unknown model ID, no pricing match: "${modelId}"`, {
+				'model.id': modelId
+			});
 			mappingCache.set(modelId, modelId);
 			return modelId;
 		}
