@@ -29,8 +29,9 @@ Build all stub pages (Coming Soon placeholders) and the shared empty state compo
 - [ ] Extensions page mentions pi-agent
 - [ ] Stub pages look intentional and polished, not broken
 ## Done summary
-Built ComingSoon and EmptyState reusable components, created all 12 stub route pages with feature-specific descriptions, added Extensions to sidebar navigation, and refactored all existing data pages to use the shared EmptyState component with actionable guidance.
+TBD
+
 ## Evidence
-- Commits: b884e7caef55e8ce50a6561b3452cfc376c1210b
-- Tests: pnpm check
+- Commits:
+- Tests:
 - PRs:

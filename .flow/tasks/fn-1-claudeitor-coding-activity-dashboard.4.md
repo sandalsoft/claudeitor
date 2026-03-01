@@ -32,8 +32,9 @@ Build the main application layout with collapsible sidebar navigation, header wi
 - [ ] Navigation between all pages works (links render correct hrefs)
 - [ ] Footer shows plugin and hook counts placeholder
 ## Done summary
-Built the application layout shell with collapsible sidebar navigation (all sections from epic spec with stub indicators), time-aware header greeting, and class-based dark mode theme system with system preference detection via matchMedia and three-state toggle (system/light/dark).
+TBD
+
 ## Evidence
-- Commits: 9d130a5e1564411f7de8b61faeaa6f5f4c44fb7a
-- Tests: pnpm test, pnpm check, pnpm build
+- Commits:
+- Tests:
 - PRs:

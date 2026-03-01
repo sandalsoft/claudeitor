@@ -54,8 +54,9 @@ Build the Server-Sent Events endpoint that pushes real-time data updates to the 
 - [ ] Typed events: stats-update, cost-update, session-update
 - [ ] Watcher cleans up on server shutdown (no orphaned watchers)
 ## Done summary
-Built complete SSE real-time data streaming infrastructure: singleton chokidar file watcher (globalThis pattern, per-file generation counter for stale-read protection, idle timeout lifecycle), SSE endpoint using sveltekit-sse produce() with GET/POST support, and Svelte 5 reactive client store with exponential backoff reconnection and monotonic sequence ordering guards.
+TBD
+
 ## Evidence
-- Commits: c02e82ad642094ae648518d568c5ce1b2867dfde
-- Tests: npx tsc --noEmit, npx vitest run
+- Commits:
+- Tests:
 - PRs:

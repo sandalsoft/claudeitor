@@ -34,8 +34,9 @@ Build reusable UI primitive components and the stat card system used across the 
 - [ ] Components follow clean-web-design patterns (spacing, colors, typography)
 - [ ] Components support both light and dark themes
 ## Done summary
-Built 8 reusable UI components: Badge, Skeleton, Tooltip (UI primitives) and StatCard, AlertCard, SessionCard, RepoChip, InfoCard (card components). StatCard supports both explicit trend and computed trend from current/previous values. AlertCard features localStorage-persisted snooze with auto-restore. SessionCard uses a shared minute-tick store for efficient relative time updates. All components use Svelte 5 $props() rune and support light/dark themes.
+TBD
+
 ## Evidence
-- Commits: fde4538, 5266e87, 97a8707
-- Tests: pnpm check
+- Commits:
+- Tests:
 - PRs:
