@@ -5,17 +5,13 @@ import type { CostCache, PricingData } from '../../data/types.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
-const EMPTY_COST_CACHE: CostCache = {
-	version: 0,
-	lastFullScan: '',
-	days: {}
-};
+function emptyCostCache(): CostCache {
+	return { version: 0, lastFullScan: '', days: {} };
+}
 
-const EMPTY_PRICING: PricingData = {
-	updated: '',
-	source: '',
-	models: {}
-};
+function emptyPricing(): PricingData {
+	return { updated: '', source: '', models: {} };
+}
 
 export async function readCostCache(claudeDir = DEFAULT_CLAUDE_DIR): Promise<CostCache> {
 	try {
@@ -23,10 +19,10 @@ export async function readCostCache(claudeDir = DEFAULT_CLAUDE_DIR): Promise<Cos
 		return JSON.parse(raw) as CostCache;
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-			return EMPTY_COST_CACHE;
+			return emptyCostCache();
 		}
 		console.warn('[costs] Failed to parse readout-cost-cache.json:', (err as Error).message);
-		return EMPTY_COST_CACHE;
+		return emptyCostCache();
 	}
 }
 
@@ -36,9 +32,9 @@ export async function readPricing(claudeDir = DEFAULT_CLAUDE_DIR): Promise<Prici
 		return JSON.parse(raw) as PricingData;
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-			return EMPTY_PRICING;
+			return emptyPricing();
 		}
 		console.warn('[costs] Failed to parse readout-pricing.json:', (err as Error).message);
-		return EMPTY_PRICING;
+		return emptyPricing();
 	}
 }

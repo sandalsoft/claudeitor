@@ -9,6 +9,7 @@ export async function readSessionHistory(claudeDir = DEFAULT_CLAUDE_DIR): Promis
 	try {
 		const raw = await readFile(join(claudeDir, 'history.jsonl'), 'utf-8');
 		const entries: SessionEntry[] = [];
+		let malformedCount = 0;
 
 		for (const line of raw.split('\n')) {
 			const trimmed = line.trim();
@@ -17,8 +18,12 @@ export async function readSessionHistory(claudeDir = DEFAULT_CLAUDE_DIR): Promis
 			try {
 				entries.push(JSON.parse(trimmed) as SessionEntry);
 			} catch {
-				// Skip malformed lines
+				malformedCount++;
 			}
+		}
+
+		if (malformedCount > 0) {
+			console.warn(`[sessions] Skipped ${malformedCount} malformed line(s) in history.jsonl`);
 		}
 
 		return entries;

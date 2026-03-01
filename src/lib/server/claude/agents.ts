@@ -23,8 +23,8 @@ export async function readAgents(claudeDir = DEFAULT_CLAUDE_DIR): Promise<AgentI
 					path: fullPath,
 					content
 				});
-			} catch {
-				// Skip unreadable files
+			} catch (readErr) {
+				console.warn(`[agents] Failed to read agent file "${entry.name}":`, (readErr as Error).message);
 			}
 		}
 

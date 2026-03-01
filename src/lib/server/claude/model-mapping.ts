@@ -15,7 +15,6 @@ import type { PricingData } from '../../data/types.js';
 
 const DATE_SUFFIX_RE = /-\d{8}$/;
 const CLAUDE_PREFIX_RE = /^claude-/;
-const FAMILY_NAMES = ['opus', 'sonnet', 'haiku'] as const;
 
 /**
  * Strip "claude-" prefix and trailing "-YYYYMMDD" date suffix.
@@ -33,16 +32,6 @@ function tokenize(name: string): string[] {
 }
 
 /**
- * Extract the model family (opus/sonnet/haiku) from tokens.
- */
-function extractFamily(tokens: string[]): string | null {
-	for (const token of tokens) {
-		if ((FAMILY_NAMES as readonly string[]).includes(token)) return token;
-	}
-	return null;
-}
-
-/**
  * Extract version tokens (numeric parts) from a token array.
  * E.g. ["opus", "4", "5"] → ["4", "5"]
  *      ["3", "5", "sonnet"] → ["3", "5"]
@@ -51,7 +40,29 @@ function extractVersion(tokens: string[]): string[] {
 	return tokens.filter((t) => /^\d+$/.test(t));
 }
 
-// Cache keyed by `${pricingFingerprint}:${modelId}` to handle pricing changes
+/**
+ * Extract non-numeric tokens (family/qualifier names).
+ * E.g. ["opus", "4", "5"] → ["opus"]
+ *      ["3", "5", "sonnet"] → ["sonnet"]
+ */
+function extractFamilyTokens(tokens: string[]): string[] {
+	return tokens.filter((t) => !/^\d+$/.test(t));
+}
+
+/**
+ * Derive known family names from pricing keys (not hard-coded).
+ */
+function deriveFamilyNames(pricingKeys: string[]): Set<string> {
+	const families = new Set<string>();
+	for (const key of pricingKeys) {
+		for (const token of extractFamilyTokens(tokenize(key))) {
+			families.add(token);
+		}
+	}
+	return families;
+}
+
+// Cache keyed by modelId; invalidated when pricing fingerprint changes
 const mappingCache = new Map<string, string>();
 let cachedFingerprint = '';
 
@@ -84,42 +95,45 @@ export function mapModelId(modelId: string, pricing: PricingData | null): string
 		return modelId;
 	}
 
-	const cacheKey = modelId;
-	const cached = mappingCache.get(cacheKey);
+	const cached = mappingCache.get(modelId);
 	if (cached !== undefined) return cached;
 
 	const pricingKeys = Object.keys(pricing.models);
 
 	// Strategy 1: Exact match
 	if (pricingKeys.includes(modelId)) {
-		mappingCache.set(cacheKey, modelId);
+		mappingCache.set(modelId, modelId);
 		return modelId;
 	}
 
 	// Strategy 2: Strip prefix + date, compare directly
 	const stripped = stripPrefixAndDate(modelId);
 	if (pricingKeys.includes(stripped)) {
-		mappingCache.set(cacheKey, stripped);
+		mappingCache.set(modelId, stripped);
 		return stripped;
 	}
 
-	// Strategy 3: Strict normalization — require family AND version match
+	// Strategy 3: Strict normalization — require shared family token AND exact version match
 	const strippedTokens = tokenize(stripped);
-	const inputFamily = extractFamily(strippedTokens);
+	const inputFamilyTokens = extractFamilyTokens(strippedTokens);
 	const inputVersion = extractVersion(strippedTokens);
+	const knownFamilies = deriveFamilyNames(pricingKeys);
+
+	// Find family token from input that exists in pricing
+	const inputFamily = inputFamilyTokens.find((t) => knownFamilies.has(t));
 
 	if (inputFamily && inputVersion.length > 0) {
 		for (const key of pricingKeys) {
 			const keyTokens = tokenize(key);
-			const keyFamily = extractFamily(keyTokens);
+			const keyFamilyTokens = extractFamilyTokens(keyTokens);
 			const keyVersion = extractVersion(keyTokens);
 
 			if (
-				keyFamily === inputFamily &&
+				keyFamilyTokens.includes(inputFamily) &&
 				keyVersion.length === inputVersion.length &&
 				keyVersion.every((v, i) => v === inputVersion[i])
 			) {
-				mappingCache.set(cacheKey, key);
+				mappingCache.set(modelId, key);
 				return key;
 			}
 		}
@@ -127,7 +141,7 @@ export function mapModelId(modelId: string, pricing: PricingData | null): string
 
 	// Strategy 4: Fallback — return raw ID, log warning
 	console.warn(`[model-mapping] Unknown model ID, no pricing match: "${modelId}"`);
-	mappingCache.set(cacheKey, modelId);
+	mappingCache.set(modelId, modelId);
 	return modelId;
 }
 

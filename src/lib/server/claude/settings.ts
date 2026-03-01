@@ -5,12 +5,9 @@ import type { SettingsData } from '../../data/types.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
-const EMPTY_SETTINGS: SettingsData = {
-	env: {},
-	model: '',
-	hooks: {},
-	enabledPlugins: {}
-};
+function emptySettings(): SettingsData {
+	return { env: {}, model: '', hooks: {}, enabledPlugins: {} };
+}
 
 export async function readSettings(claudeDir = DEFAULT_CLAUDE_DIR): Promise<SettingsData> {
 	try {
@@ -18,9 +15,9 @@ export async function readSettings(claudeDir = DEFAULT_CLAUDE_DIR): Promise<Sett
 		return JSON.parse(raw) as SettingsData;
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-			return EMPTY_SETTINGS;
+			return emptySettings();
 		}
 		console.warn('[settings] Failed to parse settings.json:', (err as Error).message);
-		return EMPTY_SETTINGS;
+		return emptySettings();
 	}
 }
