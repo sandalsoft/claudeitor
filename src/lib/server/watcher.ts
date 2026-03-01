@@ -57,6 +57,8 @@ const IDLE_TIMEOUT_MS = 30_000;
 declare global {
 	// eslint-disable-next-line no-var
 	var __claudeitorWatcher: WatcherInstance | undefined;
+	// eslint-disable-next-line no-var
+	var __claudeitorShutdownRegistered: boolean | undefined;
 }
 
 function getWatchedFilePath(changedPath: string): WatchedFile | null {
@@ -82,6 +84,35 @@ async function readFileData(
 	}
 }
 
+function emitFileChange(instance: WatcherInstance, changedPath: string): void {
+	const file = getWatchedFilePath(changedPath);
+	if (!file) return;
+
+	// Fire-and-forget: read file and notify listeners
+	readFileData(file, instance.claudeDir)
+		.then((data) => {
+			const event: SSEEvent = {
+				type: FILE_TO_EVENT[file],
+				data,
+				timestamp: Date.now()
+			};
+
+			for (const listener of instance.listeners) {
+				try {
+					listener(event);
+				} catch (err) {
+					console.warn('[watcher] Listener error:', (err as Error).message);
+				}
+			}
+		})
+		.catch((err: unknown) => {
+			console.warn(
+				`[watcher] Failed to read ${file} after change:`,
+				err instanceof Error ? err.message : String(err)
+			);
+		});
+}
+
 function createWatcherInstance(claudeDir: string): WatcherInstance {
 	const watchPaths = WATCHED_FILES.map((f) => join(claudeDir, f));
 
@@ -102,29 +133,12 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 		claudeDir
 	};
 
-	fsWatcher.on('change', async (changedPath: string) => {
-		const file = getWatchedFilePath(changedPath);
-		if (!file) return;
-
-		try {
-			const data = await readFileData(file, claudeDir);
-			const event: SSEEvent = {
-				type: FILE_TO_EVENT[file],
-				data,
-				timestamp: Date.now()
-			};
-
-			for (const listener of instance.listeners) {
-				try {
-					listener(event);
-				} catch (err) {
-					console.warn('[watcher] Listener error:', (err as Error).message);
-				}
-			}
-		} catch (err) {
-			console.warn(`[watcher] Failed to read ${file} after change:`, (err as Error).message);
-		}
-	});
+	// Handle both 'change' and 'add' events. Atomic write patterns
+	// (write temp + rename) surface as 'add' rather than 'change',
+	// and files created after startup also emit 'add'.
+	const handleFileEvent = (changedPath: string) => emitFileChange(instance, changedPath);
+	fsWatcher.on('change', handleFileEvent);
+	fsWatcher.on('add', handleFileEvent);
 
 	fsWatcher.on('error', (err: unknown) => {
 		console.warn('[watcher] Chokidar error:', err instanceof Error ? err.message : String(err));
@@ -134,10 +148,44 @@ function createWatcherInstance(claudeDir: string): WatcherInstance {
 	return instance;
 }
 
+function registerShutdownHooks(): void {
+	if (globalThis.__claudeitorShutdownRegistered) return;
+	globalThis.__claudeitorShutdownRegistered = true;
+
+	const shutdown = () => {
+		// Synchronous-safe: destroyWatcher is async but process may exit before it completes.
+		// Best effort cleanup.
+		const instance = globalThis.__claudeitorWatcher;
+		if (instance) {
+			instance.listeners.clear();
+			instance.refCount = 0;
+			instance.watcher.close().catch(() => {
+				// Swallow errors during shutdown
+			});
+			globalThis.__claudeitorWatcher = undefined;
+			console.log('[watcher] Cleaned up on process shutdown');
+		}
+	};
+
+	process.once('SIGTERM', shutdown);
+	process.once('SIGINT', shutdown);
+	process.once('beforeExit', shutdown);
+}
+
 function ensureInstance(claudeDir: string): WatcherInstance {
-	if (!globalThis.__claudeitorWatcher) {
-		globalThis.__claudeitorWatcher = createWatcherInstance(claudeDir);
+	const existing = globalThis.__claudeitorWatcher;
+	if (existing) {
+		// Warn if called with a different directory than the active watcher
+		if (existing.claudeDir !== claudeDir) {
+			console.warn(
+				`[watcher] Singleton already watching "${existing.claudeDir}", ignoring request for "${claudeDir}"`
+			);
+		}
+		return existing;
 	}
+
+	registerShutdownHooks();
+	globalThis.__claudeitorWatcher = createWatcherInstance(claudeDir);
 	return globalThis.__claudeitorWatcher;
 }
 
@@ -163,7 +211,13 @@ export function subscribe(
 	instance.listeners.add(listener);
 	instance.refCount++;
 
+	// Guard against double-unsubscribe: only decrement if we actually remove
+	let unsubscribed = false;
+
 	return () => {
+		if (unsubscribed) return;
+		unsubscribed = true;
+
 		instance.listeners.delete(listener);
 		instance.refCount--;
 
@@ -196,11 +250,14 @@ export async function destroyWatcher(): Promise<void> {
 	try {
 		await instance.watcher.close();
 		console.log('[watcher] Destroyed singleton file watcher');
+		// Only clear the global reference after successful close
+		globalThis.__claudeitorWatcher = undefined;
 	} catch (err) {
 		console.warn('[watcher] Error closing watcher:', (err as Error).message);
+		// Still clear -- a failed close likely means the watcher is in a bad state
+		// and keeping the reference would prevent creating a fresh one
+		globalThis.__claudeitorWatcher = undefined;
 	}
-
-	globalThis.__claudeitorWatcher = undefined;
 }
 
 /**

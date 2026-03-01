@@ -1,6 +1,11 @@
 // Real-time data store using SSE for the Readout page.
 // Connects to /api/sse, receives typed events, and updates reactive state.
 // Implements exponential backoff reconnection on disconnect.
+//
+// Reconnection strategy: always tear down and create a fresh Source.
+// We never use the library's built-in reconnect callback because it
+// reconnects the same underlying connection while our store tracking
+// would be out of sync. Creating a fresh Source keeps state consistent.
 
 import { source } from 'sveltekit-sse';
 import type { StatsCache, CostCache, SessionEntry } from '../data/types.js';
@@ -17,6 +22,12 @@ const BACKOFF_MULTIPLIER = 2;
 
 // ─── Store ───────────────────────────────────────────────────
 
+interface SSEPayload {
+	type: string;
+	data: unknown;
+	timestamp: number;
+}
+
 function createRealtimeStore() {
 	let stats = $state<StatsCache | null>(null);
 	let costs = $state<CostCache | null>(null);
@@ -25,9 +36,24 @@ function createRealtimeStore() {
 	let lastEventAt = $state<number | null>(null);
 
 	let connection: ReturnType<typeof source> | null = null;
+	let storeUnsubscribers: Array<() => void> = [];
 	let backoffMs = INITIAL_BACKOFF_MS;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let intentionalClose = false;
+
+	function teardownConnection() {
+		// Unsubscribe from all Svelte readable stores first
+		for (const unsub of storeUnsubscribers) {
+			unsub();
+		}
+		storeUnsubscribers = [];
+
+		// Close the SSE connection
+		if (connection) {
+			connection.close();
+			connection = null;
+		}
+	}
 
 	function connect() {
 		if (connection) return;
@@ -40,18 +66,21 @@ function createRealtimeStore() {
 				status = 'connected';
 				backoffMs = INITIAL_BACKOFF_MS;
 			},
-			close({ connect: reconnect }) {
-				connection = null;
+			close() {
+				// Tear down everything -- we will reconnect with a fresh Source
+				teardownConnection();
+
 				if (intentionalClose) {
 					status = 'disconnected';
 					return;
 				}
 
 				status = 'error';
-				scheduleReconnect(reconnect);
+				scheduleReconnect();
 			},
 			error() {
-				connection = null;
+				teardownConnection();
+
 				if (intentionalClose) {
 					status = 'disconnected';
 					return;
@@ -65,35 +94,42 @@ function createRealtimeStore() {
 			}
 		});
 
-		// Subscribe to each event type
-		const statsStore = connection.select('stats-update').json<StatsCache>();
-		const costsStore = connection.select('cost-update').json<CostCache>();
-		const sessionsStore = connection.select('session-update').json<SessionEntry[]>();
+		// Subscribe to each event type.
+		// The server emits full SSEEvent payloads (with type, data, timestamp).
+		const statsStore = connection.select('stats-update').json<SSEPayload>();
+		const costsStore = connection.select('cost-update').json<SSEPayload>();
+		const sessionsStore = connection.select('session-update').json<SSEPayload>();
 
-		// sveltekit-sse returns Svelte readable stores -- subscribe to them
-		statsStore.subscribe((value) => {
-			if (value != null) {
-				stats = value;
-				lastEventAt = Date.now();
-			}
-		});
+		// Track unsubscribe functions so we can clean up on disconnect
+		storeUnsubscribers.push(
+			statsStore.subscribe((value) => {
+				if (value != null) {
+					stats = value.data as StatsCache;
+					lastEventAt = value.timestamp ?? Date.now();
+				}
+			})
+		);
 
-		costsStore.subscribe((value) => {
-			if (value != null) {
-				costs = value;
-				lastEventAt = Date.now();
-			}
-		});
+		storeUnsubscribers.push(
+			costsStore.subscribe((value) => {
+				if (value != null) {
+					costs = value.data as CostCache;
+					lastEventAt = value.timestamp ?? Date.now();
+				}
+			})
+		);
 
-		sessionsStore.subscribe((value) => {
-			if (value != null) {
-				sessions = value;
-				lastEventAt = Date.now();
-			}
-		});
+		storeUnsubscribers.push(
+			sessionsStore.subscribe((value) => {
+				if (value != null) {
+					sessions = value.data as SessionEntry[];
+					lastEventAt = value.timestamp ?? Date.now();
+				}
+			})
+		);
 	}
 
-	function scheduleReconnect(reconnectFn?: () => void) {
+	function scheduleReconnect() {
 		if (reconnectTimer) {
 			clearTimeout(reconnectTimer);
 		}
@@ -102,12 +138,8 @@ function createRealtimeStore() {
 			reconnectTimer = null;
 			if (intentionalClose) return;
 
-			if (reconnectFn) {
-				reconnectFn();
-			} else {
-				connection = null;
-				connect();
-			}
+			// Always create a fresh connection
+			connect();
 
 			// Exponential backoff with cap
 			backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
@@ -122,10 +154,7 @@ function createRealtimeStore() {
 			reconnectTimer = null;
 		}
 
-		if (connection) {
-			connection.close();
-			connection = null;
-		}
+		teardownConnection();
 
 		status = 'disconnected';
 		backoffMs = INITIAL_BACKOFF_MS;
