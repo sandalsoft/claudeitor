@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { AgentInfo } from '../../data/types.js';
+import { withSpan } from '../telemetry/span-helpers.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -33,49 +34,61 @@ function parseFrontmatter(raw: string): { attrs: Record<string, string>; body: s
 }
 
 export async function readAgents(claudeDir = DEFAULT_CLAUDE_DIR): Promise<AgentInfo[]> {
-	const agentsDir = join(claudeDir, 'agents');
-	try {
-		const entries = await readdir(agentsDir, { withFileTypes: true });
-		const agents: AgentInfo[] = [];
-
-		for (const entry of entries) {
-			if (!entry.isFile()) continue;
-
-			const fullPath = join(agentsDir, entry.name);
-
+	return withSpan(
+		'op:readAgents',
+		{
+			'code.filepath': 'src/lib/server/claude/agents.ts',
+			'data.source': 'agents/'
+		},
+		async () => {
+			const agentsDir = join(claudeDir, 'agents');
 			try {
-				const raw = await readFile(fullPath, 'utf-8');
-				const { attrs } = parseFrontmatter(raw);
+				const entries = await readdir(agentsDir, { withFileTypes: true });
+				const agents: AgentInfo[] = [];
 
-				// Parse tools list (comma-separated in frontmatter)
-				const toolsRaw = attrs['tools'];
-				const tools = toolsRaw
-					? toolsRaw.split(',').map((t) => t.trim()).filter(Boolean)
-					: undefined;
+				for (const entry of entries) {
+					if (!entry.isFile()) continue;
 
-				agents.push({
-					name: attrs['name'] || entry.name.replace(/\.(md|txt)$/, ''),
-					path: fullPath,
-					content: raw,
-					description: attrs['description'] || undefined,
-					model: attrs['model'] || undefined,
-					tools,
-					color: attrs['color'] || undefined
-				});
-			} catch (readErr) {
-				console.warn(
-					`[agents] Failed to read agent file "${entry.name}":`,
-					(readErr as Error).message
-				);
+					const fullPath = join(agentsDir, entry.name);
+
+					try {
+						const raw = await readFile(fullPath, 'utf-8');
+						const { attrs } = parseFrontmatter(raw);
+
+						// Parse tools list (comma-separated in frontmatter)
+						const toolsRaw = attrs['tools'];
+						const tools = toolsRaw
+							? toolsRaw
+									.split(',')
+									.map((t) => t.trim())
+									.filter(Boolean)
+							: undefined;
+
+						agents.push({
+							name: attrs['name'] || entry.name.replace(/\.(md|txt)$/, ''),
+							path: fullPath,
+							content: raw,
+							description: attrs['description'] || undefined,
+							model: attrs['model'] || undefined,
+							tools,
+							color: attrs['color'] || undefined
+						});
+					} catch (readErr) {
+						console.warn(
+							`[agents] Failed to read agent file "${entry.name}":`,
+							(readErr as Error).message
+						);
+					}
+				}
+
+				return agents.sort((a, b) => a.name.localeCompare(b.name));
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+					return [];
+				}
+				console.warn('[agents] Failed to read agents directory:', (err as Error).message);
+				return [];
 			}
 		}
-
-		return agents.sort((a, b) => a.name.localeCompare(b.name));
-	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-			return [];
-		}
-		console.warn('[agents] Failed to read agents directory:', (err as Error).message);
-		return [];
-	}
+	);
 }

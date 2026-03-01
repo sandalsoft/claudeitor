@@ -21,9 +21,10 @@ Replace all 25+ console.warn/log/error calls across Claudeitor server code with 
 
 ## Approach
 
-- Import logger from `$lib/server/telemetry/logger`
-- Map each console call to appropriate severity: warn→logger.warn(), error→logger.error(), log→logger.info()
-- Preserve existing module prefix as `module` attribute (e.g., `[watcher]` → `{ module: 'watcher' }`)
+- Import logger functions from `$lib/server/telemetry/logger`: `import { info, warn, error } from '$lib/server/telemetry/logger'`
+- Logger function signature: `warn(module: string, message: string, attributes?: Record<string, unknown>)` — module is the first parameter, not an attribute
+- Map each console call to appropriate severity: `console.warn('[foo] msg')` → `warn('foo', 'msg')`, `console.error` → `error()`, `console.log` → `info()`
+- Module prefix becomes the first argument (e.g., `console.warn('[watcher] error')` → `warn('watcher', 'error')`)
 - Include error.type and error.stack attributes for error/warn calls that catch exceptions
 - Since the logger uses `process.stdout.write`/`process.stderr.write` (not `console.*`), the grep-based acceptance criteria will pass cleanly
 - Under NODE_ENV=test, logger skips JSONL file writes but still writes to stdout/stderr — tests can spy on `process.stderr.write` or mock the logger module to verify warning behavior
@@ -51,6 +52,8 @@ Replace all 25+ console.warn/log/error calls across Claudeitor server code with 
 - [ ] `rg 'console\.(warn|error|log)' src/routes/ --glob '!*.test.ts' -g '*.server.ts'` returns 0 matches
 - [ ] pnpm check passes with 0 errors
 - [ ] Existing tests updated and passing (97+ tests)
+
+<!-- Updated by plan-sync: fn-2-svelte-sentinel-self-healing-agent.1 implemented logger with signature warn(module, message, attrs?) not logger.warn(message, {module}) -->
 
 ## Done summary
 TBD

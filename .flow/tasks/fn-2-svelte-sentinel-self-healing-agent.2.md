@@ -33,7 +33,8 @@ Add OTel spans to all 13 server load functions (12 pages + 1 layout) and 14 libr
 
 ## Approach
 
-- Use the `withSpan(name, attrs, fn)` helper from task 1 that calls `tracer.startActiveSpan()`
+- Import `withSpan` from `$lib/server/telemetry/span-helpers`: `import { withSpan } from '$lib/server/telemetry/span-helpers'`
+- Use the `withSpan<T>(name, attrs, fn: (span) => T): T` helper that internally calls `tracer.startActiveSpan()`
 - Load functions get span name pattern: `load:<route>` (e.g., `load:readout`, `load:sessions`)
 - Library operations get span name pattern: `op:<function>` (e.g., `op:readStatsCache`, `op:mapModelId`)
 - All spans include `code.filepath` (required). `code.lineno` only on load functions where practical; non-acceptance-critical.
@@ -70,6 +71,8 @@ Add OTel spans to all 13 server load functions (12 pages + 1 layout) and 14 libr
 - [ ] JSONL file shows trace hierarchy when app is running
 - [ ] pnpm check passes with 0 errors
 - [ ] Existing 97 tests continue passing
+
+<!-- Updated by plan-sync: fn-2-svelte-sentinel-self-healing-agent.1 - added explicit import path for withSpan -->
 
 ## Done summary
 TBD

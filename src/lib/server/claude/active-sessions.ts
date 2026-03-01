@@ -12,6 +12,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { promisify } from 'node:util';
+import { withSpan } from '../telemetry/span-helpers.js';
 
 const execAsync = promisify(exec);
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
@@ -67,6 +68,17 @@ function parseEtime(etime: string): number {
 export async function detectActiveSessions(
 	claudeDir = DEFAULT_CLAUDE_DIR
 ): Promise<ActiveSession[]> {
+	return withSpan(
+		'op:detectActiveSessions',
+		{
+			'code.filepath': 'src/lib/server/claude/active-sessions.ts',
+			'data.source': 'ps'
+		},
+		async () => detectActiveSessionsImpl(claudeDir)
+	);
+}
+
+async function detectActiveSessionsImpl(claudeDir: string): Promise<ActiveSession[]> {
 	try {
 		// Use `etime` (POSIX, works on both macOS and Linux) which outputs
 		// elapsed time as [[dd-]hh:]mm:ss. Headers suppressed with `=`.

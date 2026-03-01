@@ -3,6 +3,7 @@ import { detectActiveSessions } from '$lib/server/claude/active-sessions';
 import { readSessionHistory } from '$lib/server/claude/sessions';
 import { readConfig } from '$lib/server/config';
 import { scanRepos } from '$lib/server/git/scanner';
+import { withSpan } from '$lib/server/telemetry/span-helpers';
 
 interface ActivityEvent {
 	type: 'commit' | 'session';
@@ -81,18 +82,27 @@ async function loadActivityEvents(
 }
 
 export const load: PageServerLoad = async () => {
-	const config = await readConfig();
+	return withSpan(
+		'load:live',
+		{
+			'code.filepath': 'src/routes/live/+page.server.ts',
+			'http.route': '/live'
+		},
+		async () => {
+			const config = await readConfig();
 
-	// Active sessions are always fresh (cheap ps command);
-	// activity feed uses a TTL cache to throttle git scanning.
-	const [activeSessions, events] = await Promise.all([
-		detectActiveSessions(config.claudeDir),
-		loadActivityEvents(config.claudeDir, config.repoDirs)
-	]);
+			// Active sessions are always fresh (cheap ps command);
+			// activity feed uses a TTL cache to throttle git scanning.
+			const [activeSessions, events] = await Promise.all([
+				detectActiveSessions(config.claudeDir),
+				loadActivityEvents(config.claudeDir, config.repoDirs)
+			]);
 
-	return {
-		activeSessions,
-		events,
-		refreshInterval: config.refreshInterval
-	};
+			return {
+				activeSessions,
+				events,
+				refreshInterval: config.refreshInterval
+			};
+		}
+	);
 };

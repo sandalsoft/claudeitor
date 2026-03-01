@@ -7,24 +7,34 @@ import {
 	cacheSummary,
 	type AISummary
 } from '$lib/server/claude/session-detail';
+import { withSpan } from '$lib/server/telemetry/span-helpers';
 
 export const load: PageServerLoad = async ({ params }) => {
-	const config = await readConfig();
-	const sessionId = params.id;
+	return withSpan(
+		'load:session-detail',
+		{
+			'code.filepath': 'src/routes/sessions/[id]/+page.server.ts',
+			'http.route': '/sessions/[id]'
+		},
+		async () => {
+			const config = await readConfig();
+			const sessionId = params.id;
 
-	const detail = await readSessionDetail(sessionId, config.claudeDir);
-	if (!detail) {
-		error(404, `Session "${sessionId}" not found`);
-	}
+			const detail = await readSessionDetail(sessionId, config.claudeDir);
+			if (!detail) {
+				error(404, `Session "${sessionId}" not found`);
+			}
 
-	// Check for cached AI summary
-	const cachedSummary = await readCachedSummary(sessionId, config.claudeDir);
+			// Check for cached AI summary
+			const cachedSummary = await readCachedSummary(sessionId, config.claudeDir);
 
-	return {
-		detail,
-		cachedSummary,
-		hasApiKey: config.anthropicApiKey.length > 0
-	};
+			return {
+				detail,
+				cachedSummary,
+				hasApiKey: config.anthropicApiKey.length > 0
+			};
+		}
+	);
 };
 
 export const actions: Actions = {

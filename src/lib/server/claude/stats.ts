@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { StatsCache } from '../../data/types.js';
+import { withSpan } from '../telemetry/span-helpers.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -22,14 +23,23 @@ function emptyStats(): StatsCache {
 }
 
 export async function readStatsCache(claudeDir = DEFAULT_CLAUDE_DIR): Promise<StatsCache> {
-	try {
-		const raw = await readFile(join(claudeDir, 'stats-cache.json'), 'utf-8');
-		return JSON.parse(raw) as StatsCache;
-	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-			return emptyStats();
+	return withSpan(
+		'op:readStatsCache',
+		{
+			'code.filepath': 'src/lib/server/claude/stats.ts',
+			'data.source': 'stats-cache.json'
+		},
+		async () => {
+			try {
+				const raw = await readFile(join(claudeDir, 'stats-cache.json'), 'utf-8');
+				return JSON.parse(raw) as StatsCache;
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+					return emptyStats();
+				}
+				console.warn('[stats] Failed to parse stats-cache.json:', (err as Error).message);
+				return emptyStats();
+			}
 		}
-		console.warn('[stats] Failed to parse stats-cache.json:', (err as Error).message);
-		return emptyStats();
-	}
+	);
 }

@@ -2,6 +2,7 @@ import { readdir, readFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { SkillInfo } from '../../data/types.js';
+import { withSpan } from '../telemetry/span-helpers.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -45,59 +46,68 @@ async function countFiles(dirPath: string): Promise<number> {
 }
 
 export async function readSkills(claudeDir = DEFAULT_CLAUDE_DIR): Promise<SkillInfo[]> {
-	const skillsDir = join(claudeDir, 'skills');
-	try {
-		const entries = await readdir(skillsDir, { withFileTypes: true });
-		const skills: SkillInfo[] = [];
-
-		for (const entry of entries) {
-			if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
-
-			const fullPath = join(skillsDir, entry.name);
-			let isSymlink = false;
-
+	return withSpan(
+		'op:readSkills',
+		{
+			'code.filepath': 'src/lib/server/claude/skills.ts',
+			'data.source': 'skills/'
+		},
+		async () => {
+			const skillsDir = join(claudeDir, 'skills');
 			try {
-				const stat = await lstat(fullPath);
-				isSymlink = stat.isSymbolicLink();
-			} catch {
-				// If stat fails, assume not symlink
+				const entries = await readdir(skillsDir, { withFileTypes: true });
+				const skills: SkillInfo[] = [];
+
+				for (const entry of entries) {
+					if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+
+					const fullPath = join(skillsDir, entry.name);
+					let isSymlink = false;
+
+					try {
+						const stat = await lstat(fullPath);
+						isSymlink = stat.isSymbolicLink();
+					} catch {
+						// If stat fails, assume not symlink
+					}
+
+					// Read SKILL.md for metadata
+					const skillMdPath = join(fullPath, 'SKILL.md');
+					let description: string | undefined;
+					let disableModelInvocation = false;
+					let content: string | undefined;
+
+					try {
+						const raw = await readFile(skillMdPath, 'utf-8');
+						const { attrs } = parseFrontmatter(raw);
+						description = attrs['description'] || undefined;
+						disableModelInvocation = attrs['disable-model-invocation'] === 'true';
+						content = raw;
+					} catch {
+						// SKILL.md might not exist
+					}
+
+					const fileCount = await countFiles(fullPath);
+
+					skills.push({
+						name: entry.name,
+						path: fullPath,
+						isSymlink,
+						description,
+						disableModelInvocation,
+						fileCount,
+						content
+					});
+				}
+
+				return skills.sort((a, b) => a.name.localeCompare(b.name));
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+					return [];
+				}
+				console.warn('[skills] Failed to read skills directory:', (err as Error).message);
+				return [];
 			}
-
-			// Read SKILL.md for metadata
-			const skillMdPath = join(fullPath, 'SKILL.md');
-			let description: string | undefined;
-			let disableModelInvocation = false;
-			let content: string | undefined;
-
-			try {
-				const raw = await readFile(skillMdPath, 'utf-8');
-				const { attrs } = parseFrontmatter(raw);
-				description = attrs['description'] || undefined;
-				disableModelInvocation = attrs['disable-model-invocation'] === 'true';
-				content = raw;
-			} catch {
-				// SKILL.md might not exist
-			}
-
-			const fileCount = await countFiles(fullPath);
-
-			skills.push({
-				name: entry.name,
-				path: fullPath,
-				isSymlink,
-				description,
-				disableModelInvocation,
-				fileCount,
-				content
-			});
 		}
-
-		return skills.sort((a, b) => a.name.localeCompare(b.name));
-	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-			return [];
-		}
-		console.warn('[skills] Failed to read skills directory:', (err as Error).message);
-		return [];
-	}
+	);
 }

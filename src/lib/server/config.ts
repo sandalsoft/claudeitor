@@ -2,6 +2,7 @@ import { readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomBytes } from 'node:crypto';
+import { withSpan } from './telemetry/span-helpers.js';
 
 export interface ClaudeitorConfig {
 	claudeDir: string;
@@ -40,36 +41,48 @@ export function expandTilde(p: string): string {
  * Expands ~ in path values.
  */
 export async function readConfig(projectRoot?: string): Promise<ClaudeitorConfig> {
-	const root = projectRoot ?? process.cwd();
-	const configPath = join(root, 'claudeitor.config.json');
-	const defaults = defaultConfig();
+	return withSpan(
+		'op:readConfig',
+		{
+			'code.filepath': 'src/lib/server/config.ts',
+			'data.source': 'claudeitor.config.json'
+		},
+		async () => {
+			const root = projectRoot ?? process.cwd();
+			const configPath = join(root, 'claudeitor.config.json');
+			const defaults = defaultConfig();
 
-	try {
-		const raw = await readFile(configPath, 'utf-8');
-		const parsed = JSON.parse(raw) as Partial<ClaudeitorConfig>;
+			try {
+				const raw = await readFile(configPath, 'utf-8');
+				const parsed = JSON.parse(raw) as Partial<ClaudeitorConfig>;
 
-		const themeRaw = parsed.themeOverride;
-		const validThemes = ['system', 'light', 'dark'] as const;
-		const themeOverride = validThemes.includes(themeRaw as (typeof validThemes)[number])
-			? (themeRaw as ClaudeitorConfig['themeOverride'])
-			: defaults.themeOverride;
+				const themeRaw = parsed.themeOverride;
+				const validThemes = ['system', 'light', 'dark'] as const;
+				const themeOverride = validThemes.includes(themeRaw as (typeof validThemes)[number])
+					? (themeRaw as ClaudeitorConfig['themeOverride'])
+					: defaults.themeOverride;
 
-		return {
-			claudeDir: expandTilde(parsed.claudeDir ?? defaults.claudeDir),
-			repoDirs: (parsed.repoDirs ?? defaults.repoDirs).map(expandTilde),
-			anthropicApiKey: parsed.anthropicApiKey ?? defaults.anthropicApiKey,
-			aiModel: parsed.aiModel ?? defaults.aiModel,
-			costAlertThreshold: parsed.costAlertThreshold ?? defaults.costAlertThreshold,
-			refreshInterval: parsed.refreshInterval ?? defaults.refreshInterval,
-			themeOverride
-		};
-	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-			return defaults;
+				return {
+					claudeDir: expandTilde(parsed.claudeDir ?? defaults.claudeDir),
+					repoDirs: (parsed.repoDirs ?? defaults.repoDirs).map(expandTilde),
+					anthropicApiKey: parsed.anthropicApiKey ?? defaults.anthropicApiKey,
+					aiModel: parsed.aiModel ?? defaults.aiModel,
+					costAlertThreshold: parsed.costAlertThreshold ?? defaults.costAlertThreshold,
+					refreshInterval: parsed.refreshInterval ?? defaults.refreshInterval,
+					themeOverride
+				};
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+					return defaults;
+				}
+				console.warn(
+					'[config] Failed to parse claudeitor.config.json:',
+					(err as Error).message
+				);
+				return defaults;
+			}
 		}
-		console.warn('[config] Failed to parse claudeitor.config.json:', (err as Error).message);
-		return defaults;
-	}
+	);
 }
 
 /**

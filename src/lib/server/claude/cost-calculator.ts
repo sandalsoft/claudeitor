@@ -1,5 +1,6 @@
 import type { CostCache, PricingData, ModelPricing, TokenUsage } from '../../data/types.js';
 import { mapModelId } from './model-mapping.js';
+import { withSpan } from '../telemetry/span-helpers.js';
 
 export interface ModelCost {
 	modelId: string;
@@ -55,6 +56,17 @@ function calculateModelTokenCost(usage: TokenUsage, pricing: ModelPricing): {
  * Handles missing models by logging a warning and showing $0.
  */
 export function calculateCosts(costCache: CostCache, pricing: PricingData): CostSummary {
+	return withSpan(
+		'op:calculateCosts',
+		{
+			'code.filepath': 'src/lib/server/claude/cost-calculator.ts',
+			'op.type': 'compute'
+		},
+		() => calculateCostsImpl(costCache, pricing)
+	);
+}
+
+function calculateCostsImpl(costCache: CostCache, pricing: PricingData): CostSummary {
 	const modelAgg = new Map<
 		string,
 		{

@@ -75,9 +75,8 @@ Create the OTel telemetry foundation for Claudeitor: a TracerProvider with a cus
 - [ ] Existing 97 tests continue passing (no JSONL file writes during tests)
 
 ## Done summary
-TBD
-
+Implemented OTel telemetry foundation: TracerProvider with NodeTracerProvider and AsyncLocalStorageContextManager, custom JSONLSpanExporter with flat span records, structured logger with dual output (stdout/stderr + JSONL), centralized FileWriter with serialized queue and 50MB rotation, and withSpan helper preserving sync/async return types. All OTel packages pinned exact in dependencies and added to ssr.noExternal.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 1dd212651a023829015bc55ad471ce89444e87a9
+- Tests: pnpm check, pnpm test, pnpm build && timeout 10 node build
 - PRs:

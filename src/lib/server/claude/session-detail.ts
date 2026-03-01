@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
+import { withSpan } from '../telemetry/span-helpers.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -111,6 +112,20 @@ export async function findSessionFile(
 export async function readSessionDetail(
 	sessionId: string,
 	claudeDir = DEFAULT_CLAUDE_DIR
+): Promise<SessionDetail | null> {
+	return withSpan(
+		'op:readSessionDetail',
+		{
+			'code.filepath': 'src/lib/server/claude/session-detail.ts',
+			'data.source': 'session.jsonl'
+		},
+		async () => readSessionDetailImpl(sessionId, claudeDir)
+	);
+}
+
+async function readSessionDetailImpl(
+	sessionId: string,
+	claudeDir: string
 ): Promise<SessionDetail | null> {
 	const found = await findSessionFile(sessionId, claudeDir);
 	if (!found) return null;

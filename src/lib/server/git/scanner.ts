@@ -3,6 +3,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoCommit, RepoInfo, GitScanResult } from './types.js';
+import { withSpan } from '../telemetry/span-helpers.js';
 
 const execAsync = promisify(exec);
 const GIT_TIMEOUT_MS = 10_000;
@@ -193,28 +194,39 @@ export async function getRepoInfo(repoPath: string): Promise<RepoInfo | null> {
  * Scan all configured directories for git repos and gather info.
  */
 export async function scanRepos(repoDirs: string[]): Promise<GitScanResult> {
-	const gitAvailable = await isGitAvailable();
-	if (!gitAvailable) {
-		return {
-			repos: [],
-			errors: ['Git binary not found. Please install git to enable repository scanning.']
-		};
-	}
+	return withSpan(
+		'op:scanRepos',
+		{
+			'code.filepath': 'src/lib/server/git/scanner.ts',
+			'data.source': 'git'
+		},
+		async () => {
+			const gitAvailable = await isGitAvailable();
+			if (!gitAvailable) {
+				return {
+					repos: [],
+					errors: [
+						'Git binary not found. Please install git to enable repository scanning.'
+					]
+				};
+			}
 
-	const repoPaths = await discoverRepos(repoDirs);
-	const errors: string[] = [];
-	const repos: RepoInfo[] = [];
+			const repoPaths = await discoverRepos(repoDirs);
+			const errors: string[] = [];
+			const repos: RepoInfo[] = [];
 
-	for (const repoPath of repoPaths) {
-		try {
-			const info = await getRepoInfo(repoPath);
-			if (info) repos.push(info);
-		} catch (err) {
-			errors.push(`Failed to scan ${repoPath}: ${(err as Error).message}`);
+			for (const repoPath of repoPaths) {
+				try {
+					const info = await getRepoInfo(repoPath);
+					if (info) repos.push(info);
+				} catch (err) {
+					errors.push(`Failed to scan ${repoPath}: ${(err as Error).message}`);
+				}
+			}
+
+			return { repos, errors };
 		}
-	}
-
-	return { repos, errors };
+	);
 }
 
 /**

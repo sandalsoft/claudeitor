@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { MemoryFile } from '../../data/types.js';
+import { withSpan } from '../telemetry/span-helpers.js';
 
 const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
 
@@ -58,35 +59,44 @@ export async function readMemoryFiles(
 	claudeDir = DEFAULT_CLAUDE_DIR,
 	projectDir = process.cwd()
 ): Promise<MemoryFile[]> {
-	const files: MemoryFile[] = [];
+	return withSpan(
+		'op:readMemoryFiles',
+		{
+			'code.filepath': 'src/lib/server/claude/memory.ts',
+			'data.source': 'CLAUDE.md'
+		},
+		async () => {
+			const files: MemoryFile[] = [];
 
-	// 1. Global CLAUDE.md
-	const globalFile = await readMemoryFile(
-		join(claudeDir, 'CLAUDE.md'),
-		'Global (~/.claude/CLAUDE.md)',
-		'global'
+			// 1. Global CLAUDE.md
+			const globalFile = await readMemoryFile(
+				join(claudeDir, 'CLAUDE.md'),
+				'Global (~/.claude/CLAUDE.md)',
+				'global'
+			);
+			if (globalFile) files.push(globalFile);
+
+			// 2. Project-level CLAUDE.md
+			const projectFile = await readMemoryFile(
+				join(projectDir, 'CLAUDE.md'),
+				'Project (./CLAUDE.md)',
+				'project'
+			);
+			if (projectFile) files.push(projectFile);
+
+			// 3. Project-level CLAUDE.local.md
+			const localFile = await readMemoryFile(
+				join(projectDir, 'CLAUDE.local.md'),
+				'Local (./CLAUDE.local.md)',
+				'project'
+			);
+			if (localFile) files.push(localFile);
+
+			// 4. Child directory CLAUDE.md files (one level deep)
+			const children = await scanChildMemory(projectDir);
+			files.push(...children);
+
+			return files;
+		}
 	);
-	if (globalFile) files.push(globalFile);
-
-	// 2. Project-level CLAUDE.md
-	const projectFile = await readMemoryFile(
-		join(projectDir, 'CLAUDE.md'),
-		'Project (./CLAUDE.md)',
-		'project'
-	);
-	if (projectFile) files.push(projectFile);
-
-	// 3. Project-level CLAUDE.local.md
-	const localFile = await readMemoryFile(
-		join(projectDir, 'CLAUDE.local.md'),
-		'Local (./CLAUDE.local.md)',
-		'project'
-	);
-	if (localFile) files.push(localFile);
-
-	// 4. Child directory CLAUDE.md files (one level deep)
-	const children = await scanChildMemory(projectDir);
-	files.push(...children);
-
-	return files;
 }
