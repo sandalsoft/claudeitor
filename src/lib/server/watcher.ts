@@ -1,0 +1,223 @@
+// Chokidar singleton file watcher for ~/.claude/ data files.
+// Uses globalThis to prevent duplicate watchers during HMR reloads.
+// Reference-counts SSE connections: creates watcher on first connect,
+// destroys when last disconnects (with idle timeout grace period).
+
+import { watch, type FSWatcher } from 'chokidar';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { readStatsCache } from './claude/stats.js';
+import { readCostCache } from './claude/costs.js';
+import { readSessionHistory } from './claude/sessions.js';
+import type { StatsCache, CostCache, SessionEntry } from '../data/types.js';
+
+// ─── SSE Event Types ─────────────────────────────────────────
+
+export type SSEEventType = 'stats-update' | 'cost-update' | 'session-update';
+
+export interface SSEEvent {
+	type: SSEEventType;
+	data: StatsCache | CostCache | SessionEntry[];
+	timestamp: number;
+}
+
+export type WatcherListener = (event: SSEEvent) => void;
+
+// ─── Watched Files ───────────────────────────────────────────
+
+const WATCHED_FILES = [
+	'stats-cache.json',
+	'readout-cost-cache.json',
+	'history.jsonl'
+] as const;
+
+type WatchedFile = (typeof WATCHED_FILES)[number];
+
+const FILE_TO_EVENT: Record<WatchedFile, SSEEventType> = {
+	'stats-cache.json': 'stats-update',
+	'readout-cost-cache.json': 'cost-update',
+	'history.jsonl': 'session-update'
+};
+
+// ─── Watcher Instance ────────────────────────────────────────
+
+interface WatcherInstance {
+	watcher: FSWatcher;
+	listeners: Set<WatcherListener>;
+	refCount: number;
+	idleTimer: ReturnType<typeof setTimeout> | null;
+	claudeDir: string;
+}
+
+// Idle timeout before destroying watcher after last client disconnects.
+// Gives time for page reloads without tearing down/recreating the watcher.
+const IDLE_TIMEOUT_MS = 30_000;
+
+// globalThis singleton to survive HMR reloads
+declare global {
+	// eslint-disable-next-line no-var
+	var __claudeitorWatcher: WatcherInstance | undefined;
+}
+
+function getWatchedFilePath(changedPath: string): WatchedFile | null {
+	for (const file of WATCHED_FILES) {
+		if (changedPath.endsWith(file)) {
+			return file;
+		}
+	}
+	return null;
+}
+
+async function readFileData(
+	file: WatchedFile,
+	claudeDir: string
+): Promise<StatsCache | CostCache | SessionEntry[]> {
+	switch (file) {
+		case 'stats-cache.json':
+			return readStatsCache(claudeDir);
+		case 'readout-cost-cache.json':
+			return readCostCache(claudeDir);
+		case 'history.jsonl':
+			return readSessionHistory(claudeDir);
+	}
+}
+
+function createWatcherInstance(claudeDir: string): WatcherInstance {
+	const watchPaths = WATCHED_FILES.map((f) => join(claudeDir, f));
+
+	const fsWatcher = watch(watchPaths, {
+		persistent: true,
+		ignoreInitial: true,
+		awaitWriteFinish: {
+			stabilityThreshold: 500,
+			pollInterval: 100
+		}
+	});
+
+	const instance: WatcherInstance = {
+		watcher: fsWatcher,
+		listeners: new Set(),
+		refCount: 0,
+		idleTimer: null,
+		claudeDir
+	};
+
+	fsWatcher.on('change', async (changedPath: string) => {
+		const file = getWatchedFilePath(changedPath);
+		if (!file) return;
+
+		try {
+			const data = await readFileData(file, claudeDir);
+			const event: SSEEvent = {
+				type: FILE_TO_EVENT[file],
+				data,
+				timestamp: Date.now()
+			};
+
+			for (const listener of instance.listeners) {
+				try {
+					listener(event);
+				} catch (err) {
+					console.warn('[watcher] Listener error:', (err as Error).message);
+				}
+			}
+		} catch (err) {
+			console.warn(`[watcher] Failed to read ${file} after change:`, (err as Error).message);
+		}
+	});
+
+	fsWatcher.on('error', (err: unknown) => {
+		console.warn('[watcher] Chokidar error:', err instanceof Error ? err.message : String(err));
+	});
+
+	console.log('[watcher] Created singleton file watcher for', claudeDir);
+	return instance;
+}
+
+function ensureInstance(claudeDir: string): WatcherInstance {
+	if (!globalThis.__claudeitorWatcher) {
+		globalThis.__claudeitorWatcher = createWatcherInstance(claudeDir);
+	}
+	return globalThis.__claudeitorWatcher;
+}
+
+// ─── Public API ──────────────────────────────────────────────
+
+/**
+ * Subscribe to file change events. Returns an unsubscribe function.
+ * Creates the watcher on first subscription, destroys after idle timeout
+ * when all subscribers disconnect.
+ */
+export function subscribe(
+	listener: WatcherListener,
+	claudeDir = join(homedir(), '.claude')
+): () => void {
+	const instance = ensureInstance(claudeDir);
+
+	// Cancel any pending idle shutdown
+	if (instance.idleTimer) {
+		clearTimeout(instance.idleTimer);
+		instance.idleTimer = null;
+	}
+
+	instance.listeners.add(listener);
+	instance.refCount++;
+
+	return () => {
+		instance.listeners.delete(listener);
+		instance.refCount--;
+
+		if (instance.refCount <= 0) {
+			// Start idle timer -- don't tear down immediately in case of page reload
+			instance.idleTimer = setTimeout(async () => {
+				if (instance.refCount <= 0) {
+					await destroyWatcher();
+				}
+			}, IDLE_TIMEOUT_MS);
+		}
+	};
+}
+
+/**
+ * Destroy the singleton watcher. Called on server shutdown.
+ */
+export async function destroyWatcher(): Promise<void> {
+	const instance = globalThis.__claudeitorWatcher;
+	if (!instance) return;
+
+	if (instance.idleTimer) {
+		clearTimeout(instance.idleTimer);
+		instance.idleTimer = null;
+	}
+
+	instance.listeners.clear();
+	instance.refCount = 0;
+
+	try {
+		await instance.watcher.close();
+		console.log('[watcher] Destroyed singleton file watcher');
+	} catch (err) {
+		console.warn('[watcher] Error closing watcher:', (err as Error).message);
+	}
+
+	globalThis.__claudeitorWatcher = undefined;
+}
+
+/**
+ * Get current watcher stats (for debugging/monitoring).
+ */
+export function getWatcherStats(): {
+	active: boolean;
+	refCount: number;
+	idleTimerPending: boolean;
+} {
+	const instance = globalThis.__claudeitorWatcher;
+	if (!instance) {
+		return { active: false, refCount: 0, idleTimerPending: false };
+	}
+	return {
+		active: true,
+		refCount: instance.refCount,
+		idleTimerPending: instance.idleTimer !== null
+	};
+}
