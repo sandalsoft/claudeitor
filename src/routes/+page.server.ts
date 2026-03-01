@@ -69,16 +69,19 @@ function computeTrends(
 		}
 	}
 
-	// Costs: last 7d vs previous 7d
-	const today = new Date().toISOString().slice(0, 10);
-	const last7dDate = new Date(now - 7 * DAY_MS).toISOString().slice(0, 10);
-	const prev7dDate = new Date(now - 14 * DAY_MS).toISOString().slice(0, 10);
+	// Costs: last 7d vs previous 7d (use local date boundaries to match commit logic)
+	const localDate = (d: Date) =>
+		`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+	const todayStr = localDate(new Date());
+	const last7dStr = localDate(new Date(todayStart - 6 * DAY_MS));
+	const prev7dStr = localDate(new Date(todayStart - 13 * DAY_MS));
+	const prev7dEndStr = localDate(new Date(todayStart - 7 * DAY_MS));
 
 	let costLast7d = 0;
 	let costPrev7d = 0;
 	for (const day of dailyCosts) {
-		if (day.date >= last7dDate && day.date <= today) costLast7d += day.totalCostUSD;
-		else if (day.date >= prev7dDate && day.date < last7dDate) costPrev7d += day.totalCostUSD;
+		if (day.date >= last7dStr && day.date <= todayStr) costLast7d += day.totalCostUSD;
+		else if (day.date >= prev7dStr && day.date < prev7dEndStr) costPrev7d += day.totalCostUSD;
 	}
 
 	return {
@@ -99,6 +102,24 @@ function countSessionsByRepo(sessions: SessionEntry[]): Map<string, number> {
 		}
 	}
 	return counts;
+}
+
+/**
+ * Single-pass top-N selection without sorting the entire array.
+ * O(n*k) where k=n is small; avoids O(n log n) for large arrays.
+ */
+function topN<T>(items: T[], n: number, compareFn: (a: T, b: T) => number): T[] {
+	const result: T[] = [];
+	for (const item of items) {
+		if (result.length < n) {
+			result.push(item);
+			result.sort(compareFn);
+		} else if (compareFn(item, result[result.length - 1]) < 0) {
+			result[result.length - 1] = item;
+			result.sort(compareFn);
+		}
+	}
+	return result;
 }
 
 /**
@@ -134,8 +155,8 @@ export const load: PageServerLoad = async () => {
 	const commitsToday = getCommitsToday(gitResult.repos);
 	const trends = computeTrends(sessions, gitResult.repos, costSummary.daily);
 
-	// Recent sessions: last 5, sorted newest first
-	const recentSessions = [...sessions].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
+	// Recent sessions: single-pass top-5 selection (avoids full-array sort)
+	const recentSessions = topN(sessions, 5, (a, b) => b.timestamp - a.timestamp);
 
 	// Alerts: repos with hygiene issues (use path-based IDs for uniqueness)
 	const alerts: Array<{
