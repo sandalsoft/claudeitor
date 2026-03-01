@@ -37,22 +37,21 @@ Scaffold a new SvelteKit project with Svelte 5, Tailwind CSS v4 (CSS-first confi
 - Node adapter required for SSE and file watching (not auto/static)
 - Svelte 5 uses runes ($state, $derived, $effect), NOT legacy stores for component state
 ## Acceptance
-- [ ] SvelteKit project initializes and dev server starts on port 5173
-- [ ] TypeScript in strict mode (strict: true in tsconfig)
-- [ ] Tailwind v4 via @tailwindcss/vite plugin in vite.config.ts
-- [ ] src/app.css has @import "tailwindcss", @source, and @theme directives
-- [ ] System prefers-color-scheme detection works (light/dark)
-- [ ] Node adapter configured in svelte.config.js
-- [ ] Server bound to 127.0.0.1 (not 0.0.0.0) in both dev and production
-- [ ] All dependencies installed: d3, sveltekit-sse, bits-ui, chokidar, @anthropic-ai/sdk, @tailwindcss/vite
-- [ ] Directory structure matches epic spec
-- [ ] claudeitor.config.example.json committed with placeholder settings
-- [ ] claudeitor.config.json in .gitignore (contains API key)
-- [ ] pnpm dev, pnpm check, pnpm build all pass
+- [x] SvelteKit project initializes and dev server starts on port 5173
+- [x] TypeScript in strict mode (strict: true in tsconfig)
+- [x] Tailwind v4 via @tailwindcss/vite plugin in vite.config.ts
+- [x] src/app.css has @import "tailwindcss", @source, and @theme directives
+- [x] System prefers-color-scheme detection works (light/dark)
+- [x] Node adapter configured in svelte.config.js
+- [x] Server bound to 127.0.0.1 (not 0.0.0.0) in both dev and production
+- [x] All dependencies installed: d3, sveltekit-sse, bits-ui, chokidar, @anthropic-ai/sdk, @tailwindcss/vite
+- [x] Directory structure matches epic spec
+- [x] claudeitor.config.example.json committed with placeholder settings
+- [x] claudeitor.config.json in .gitignore (contains API key)
+- [x] pnpm dev, pnpm check, pnpm build all pass
 ## Done summary
-TBD
-
+Scaffolded SvelteKit + Svelte 5 project with Tailwind v4 (CSS-first @tailwindcss/vite), D3.js, TypeScript strict. Node adapter configured for persistent server. Server bound to 127.0.0.1 in dev/preview/production. HSL theme with light/dark via prefers-color-scheme. All deps installed. Directory structure: src/lib/{data,components,stores,utils}. Config example committed, secrets gitignored. pnpm dev/check/build all pass cleanly.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: ff80090
+- Tests: pnpm check: 0 errors 0 warnings, pnpm build: success
 - PRs:

@@ -1,0 +1,1 @@
+{"commits":["ff80090"],"tests":["pnpm check: 0 errors 0 warnings","pnpm build: success"],"verification":["dev server starts on 127.0.0.1:5173","svelte-check 591 files 0 errors 0 warnings","vite build succeeds with node adapter"]}
