@@ -21,7 +21,7 @@
 	function selectRange(range: number) {
 		const url = new URL($page.url);
 		url.searchParams.set('range', String(range));
-		goto(url.toString(), { replaceState: true, noScroll: true });
+		goto(url.pathname + url.search, { replaceState: true, noScroll: true });
 	}
 
 	// Table sorting

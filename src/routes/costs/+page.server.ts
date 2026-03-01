@@ -20,19 +20,29 @@ export const load: PageServerLoad = async ({ url }) => {
 		? (Number(rangeParam) as (typeof validRanges)[number])
 		: 30;
 
-	// Filter daily costs to selected range
-	const allDaily = costSummary.daily;
-	const filteredDaily = allDaily.slice(-range);
-
-	// Compute summary stats using local date boundaries
+	// Use local-date arithmetic (DST-safe) for all date boundaries
 	const now = new Date();
 	const localDate = (d: Date) =>
 		`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 	const todayStr = localDate(now);
-	const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-	const weekStartStr = localDate(new Date(todayStart.getTime() - 6 * 86_400_000));
-	const monthStartStr = localDate(new Date(todayStart.getTime() - 29 * 86_400_000));
+
+	// DST-safe: use setDate() instead of millisecond subtraction
+	const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	rangeStart.setDate(rangeStart.getDate() - (range - 1));
+	const rangeStartStr = localDate(rangeStart);
+
+	const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	weekStart.setDate(weekStart.getDate() - 6);
+	const weekStartStr = localDate(weekStart);
+
+	const monthStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	monthStart.setDate(monthStart.getDate() - 29);
+	const monthStartStr = localDate(monthStart);
+
+	// Filter daily costs by calendar date threshold (not entry count)
+	const allDaily = costSummary.daily;
+	const filteredDaily = allDaily.filter((d) => d.date >= rangeStartStr && d.date <= todayStr);
 
 	let costToday = 0;
 	let costThisWeek = 0;

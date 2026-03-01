@@ -34,15 +34,6 @@
 	const sortedData = $derived([...data].sort((a, b) => a.date.localeCompare(b.date)));
 	const isEmpty = $derived(sortedData.length === 0 || sortedData.every((d) => d.totalCostUSD === 0));
 
-	// Collect all model keys across all days for stacked area
-	const modelKeys = $derived.by(() => {
-		const keys = new Set<string>();
-		for (const d of sortedData) {
-			for (const k of Object.keys(d.byModel)) keys.add(k);
-		}
-		return [...keys].sort();
-	});
-
 	const xScale = $derived(
 		d3
 			.scalePoint<string>()

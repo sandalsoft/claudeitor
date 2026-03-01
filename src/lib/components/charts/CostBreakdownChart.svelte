@@ -25,8 +25,8 @@
 	const isEmpty = $derived(sortedData.length === 0);
 	const totalCost = $derived(sortedData.reduce((sum, d) => sum + d.totalCostUSD, 0));
 
-	// Donut dimensions
-	const size = $derived(Math.min(containerWidth, 240));
+	// Donut dimensions (clamp to prevent invalid radius on initial render)
+	const size = $derived(Math.max(Math.min(containerWidth, 240), 120));
 	const radius = $derived(size / 2);
 	const innerRadius = $derived(radius * 0.55);
 
