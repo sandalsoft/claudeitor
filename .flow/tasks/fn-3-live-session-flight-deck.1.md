@@ -61,9 +61,8 @@ Build a server-side incremental JSONL tailer that reads active session files eff
 - [ ] `pnpm check` passes
 - [ ] `pnpm test` passes
 ## Done summary
-TBD
-
+Built incremental JSONL session tailer with byte-offset tracking, cumulative token accounting, tool call correlation via tool_use_id, and file mutation extraction. Includes module-level singleton, 5-minute eviction, collection capping, and 21 unit tests covering all acceptance criteria.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: d9b854278481b8a9018e4dacd483128c8d7a0270
+- Tests: pnpm check, pnpm test
 - PRs:

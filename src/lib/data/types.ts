@@ -160,3 +160,19 @@ export interface LiveSessionTelemetry {
 	messageCount: number;
 	model: string;
 }
+
+// ─── Enriched Active Session (flight deck) ───────────────────
+
+export interface EnrichedActiveSession {
+	pid: number;
+	command: string;
+	startedAt: string;
+	project?: string;
+	sessionId?: string;
+	cpuPercent: number;
+	memPercent: number;
+	telemetry: LiveSessionTelemetry | null;
+	cost: number;
+	displayModel: string;
+	durationMs: number;
+}
