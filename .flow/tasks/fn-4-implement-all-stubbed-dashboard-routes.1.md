@@ -55,9 +55,8 @@ Implement the /setup and /extensions routes.
 - [ ] Both routes use `withSpan()` instrumentation
 - [ ] `pnpm check` passes
 ## Done summary
-TBD
-
+Implemented /setup and /extensions routes replacing ComingSoon stubs. /setup performs 8 health checks (CLI, claude dir, config file 3-state, repoDirs, API key, CLAUDE.md, skills, hooks) using config.claudeDir for all paths. /extensions aggregates skills, agents, plugins (merged from installed_plugins.json + enabledPlugins), MCP servers, and hooks with counts-only safe serialization. All defensive validation applied for malformed settings data.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 6ac70e38f8a23260ae2e45f12e194ecb78e6f2f9, 84ca0b0fe468dde699f8fe0f9ea9c1acac6bf37b
+- Tests: pnpm check
 - PRs:

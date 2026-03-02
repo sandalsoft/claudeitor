@@ -62,7 +62,7 @@ export const navSections: NavSection[] = [
 			{ label: 'Sessions', href: '/sessions', icon: 'messages-square' },
 			{ label: 'Costs', href: '/costs', icon: 'dollar-sign' },
 			{ label: 'Setup', href: '/setup', icon: 'wrench', stub: true },
-			{ label: 'Ports', href: '/ports', icon: 'network', stub: true }
+			{ label: 'Ports', href: '/ports', icon: 'network' }
 		]
 	},
 	{
@@ -91,7 +91,7 @@ export const navSections: NavSection[] = [
 			{ label: 'Hygiene', href: '/hygiene', icon: 'shield-check', stub: true },
 			{ label: 'Deps', href: '/deps', icon: 'package', stub: true },
 			{ label: 'Worktrees', href: '/worktrees', icon: 'folder-tree', stub: true },
-			{ label: 'Env', href: '/env', icon: 'variable', stub: true },
+			{ label: 'Env', href: '/env', icon: 'variable' },
 			{ label: 'Lint', href: '/lint', icon: 'check-circle', stub: true }
 		]
 	},

@@ -190,6 +190,31 @@ export interface ExtensionsSummary {
 	hookCount: number;
 }
 
+// ─── Environment Variables (/env) ─────────────────────────────
+
+export interface EnvVariable {
+	name: string;
+	/** Repo paths where this variable is defined. */
+	repos: string[];
+}
+
+// ─── Port Info (/ports) ──────────────────────────────────────
+
+export interface PortInfo {
+	/** Process name (e.g. "node", "nginx"). */
+	command: string;
+	/** Process ID. */
+	pid: number;
+	/** User owning the process. */
+	user: string;
+	/** Port number. */
+	port: number;
+	/** Protocol (e.g. "TCP"). */
+	protocol: string;
+	/** Full address binding (e.g. "*:3000", "127.0.0.1:8080"). */
+	address: string;
+}
+
 // ─── Enriched Active Session (flight deck) ───────────────────
 
 export interface EnrichedActiveSession {
