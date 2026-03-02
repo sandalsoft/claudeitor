@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { navigation } from '$lib/stores/navigation';
-	import { theme } from '$lib/stores/theme';
+	import { navigation } from '$lib/stores/navigation.svelte';
+	import { theme } from '$lib/stores/theme.svelte';
 	import Icon from './Icon.svelte';
 
 	// Time-aware greeting based on current hour

@@ -30,12 +30,17 @@
 
 	// Sessions: SSE delivers updated session list on history.jsonl changes
 	const recentSessions = $derived.by(() => {
-		if (realtime.sessions) {
-			return [...realtime.sessions]
-				.sort((a, b) => b.timestamp - a.timestamp)
-				.slice(0, 5);
-		}
-		return data.recentSessions;
+		const source = realtime.sessions ?? data.recentSessions;
+		const sorted = [...source].sort((a, b) => b.timestamp - a.timestamp);
+		// Deduplicate by sessionId (continued sessions appear multiple times)
+		const seen = new Set<string>();
+		const unique = sorted.filter((s) => {
+			const key = s.sessionId ?? String(s.timestamp);
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+		return unique.slice(0, 5);
 	});
 
 	// Stat card values

@@ -3,7 +3,7 @@
 	import { Dialog } from 'bits-ui';
 	import { goto } from '$app/navigation';
 	import Icon from './Icon.svelte';
-	import { navSections } from '$lib/stores/navigation';
+	import { navSections } from '$lib/stores/navigation.svelte';
 
 	interface PaletteItem {
 		label: string;

@@ -7,6 +7,7 @@ import {
 	cacheSummary,
 	type AISummary
 } from '$lib/server/claude/session-detail';
+import { toApiModelId } from '$lib/server/claude/model-mapping';
 import { withSpan } from '$lib/server/telemetry/span-helpers';
 import { warn } from '$lib/server/telemetry/logger';
 
@@ -56,10 +57,16 @@ export const actions: Actions = {
 			return { success: false, error: 'Session not found' };
 		}
 
-		// Check cache first
-		const cached = await readCachedSummary(sessionId, config.claudeDir);
-		if (cached) {
-			return { success: true, summary: cached };
+		// Check if this is a regeneration request
+		const formData = await request.formData();
+		const regenerate = formData.get('regenerate') === '1';
+
+		// Check cache first (skip on regenerate)
+		if (!regenerate) {
+			const cached = await readCachedSummary(sessionId, config.claudeDir);
+			if (cached) {
+				return { success: true, summary: cached };
+			}
 		}
 
 		// Build a concise transcript for the AI
@@ -77,22 +84,30 @@ export const actions: Actions = {
 		try {
 			const Anthropic = (await import('@anthropic-ai/sdk')).default;
 			const client = new Anthropic({ apiKey: config.anthropicApiKey });
+			const apiModel = toApiModelId(config.aiModel);
 
 			const response = await client.messages.create({
-				model: config.aiModel,
+				model: apiModel,
 				max_tokens: 500,
+				system: 'You summarize coding sessions. Respond with ONLY the summary text — no labels, no markdown formatting, no prefixes like "Summary:" or "**Summary:**". Just the plain summary sentences.',
 				messages: [
 					{
 						role: 'user',
-						content: `Summarize this Claude Code coding session in 2-3 concise sentences. Focus on what was accomplished, the main technologies/files involved, and the outcome.\n\nSession transcript:\n${transcript}`
+						content: `Summarize this Claude Code coding session in 2-3 concise sentences. Focus on what was accomplished, the main technologies/files involved, and the outcome.\n\n${transcript}`
 					}
 				]
 			});
 
-			const summaryText = response.content
+			let summaryText = response.content
 				.filter((b) => b.type === 'text')
 				.map((b) => b.text)
-				.join('\n');
+				.join('\n')
+				.trim();
+
+			// Strip any residual markdown preamble the model might add
+			summaryText = summaryText
+				.replace(/^\*{0,2}summary:?\*{0,2}\s*/i, '')
+				.trim();
 
 			const summary: AISummary = {
 				summary: summaryText,
@@ -100,7 +115,7 @@ export const actions: Actions = {
 				model: config.aiModel
 			};
 
-			// Cache the result
+			// Cache the result (overwrites on regenerate)
 			await cacheSummary(sessionId, summary, config.claudeDir);
 
 			return { success: true, summary };

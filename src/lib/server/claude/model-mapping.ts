@@ -167,3 +167,28 @@ export function clearMappingCache(): void {
 	mappingCache.clear();
 	cachedFingerprint = '';
 }
+
+/**
+ * Convert a pricing short name or partial model ID to a full Anthropic API model ID.
+ *
+ * The API accepts "claude-{family}-{version}" without a date suffix,
+ * so we just prepend "claude-" to pricing short names.
+ *
+ * Examples:
+ *   "haiku-4-5"                  -> "claude-haiku-4-5"
+ *   "opus-4-6"                   -> "claude-opus-4-6"
+ *   "sonnet-4-5"                 -> "claude-sonnet-4-5"
+ *   "claude-haiku-4-5-20251001"  -> "claude-haiku-4-5-20251001" (already valid)
+ *   "claude-opus-4-6"            -> "claude-opus-4-6"            (already valid)
+ */
+export function toApiModelId(shortName: string): string {
+	if (!shortName) return shortName;
+
+	// Already a full model ID (has "claude-" prefix)
+	if (CLAUDE_PREFIX_RE.test(shortName)) {
+		return shortName;
+	}
+
+	// Pricing short name -> API model ID
+	return `claude-${shortName}`;
+}

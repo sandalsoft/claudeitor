@@ -37,7 +37,15 @@ export async function readSessionHistory(claudeDir = DEFAULT_CLAUDE_DIR): Promis
 					});
 				}
 
-				return entries;
+				// Deduplicate by sessionId — continued sessions appear multiple times.
+				// Keep the latest entry (last occurrence) for each sessionId.
+				const byId = new Map<string, SessionEntry>();
+				for (const entry of entries) {
+					const key = entry.sessionId ?? String(entry.timestamp);
+					byId.set(key, entry);
+				}
+
+				return Array.from(byId.values());
 			} catch (err) {
 				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 					return [];

@@ -12,7 +12,7 @@ export default defineConfig({
 		host: '127.0.0.1'
 	},
 	ssr: {
-		noExternal: [
+		external: [
 			'@opentelemetry/api',
 			'@opentelemetry/sdk-trace-node',
 			'@opentelemetry/sdk-trace-base',

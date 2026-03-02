@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/layout/Icon.svelte';
-	import { subscribeMinuteTick, getMinuteTick } from '$lib/stores/minute-tick';
+	import { subscribeMinuteTick, getMinuteTick } from '$lib/stores/minute-tick.svelte';
 
 	interface Props {
 		sessionId: string;

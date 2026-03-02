@@ -49,7 +49,7 @@
 				<Icon name="sparkles" size={16} />
 				AI Summary
 			</h2>
-			{#if data.hasApiKey && !summary}
+			{#if data.hasApiKey}
 				<form
 					method="POST"
 					action="?/summarize"
@@ -61,6 +61,9 @@
 						};
 					}}
 				>
+					{#if summary}
+						<input type="hidden" name="regenerate" value="1" />
+					{/if}
 					<button
 						type="submit"
 						disabled={summaryLoading}
@@ -71,6 +74,8 @@
 								<Icon name="loader" size={12} class="animate-spin" />
 								Generating...
 							</span>
+						{:else if summary}
+							Regenerate
 						{:else}
 							Generate Summary
 						{/if}
@@ -84,7 +89,7 @@
 				{summary.summary}
 			</p>
 			<p class="mt-2 text-xs text-muted-foreground">
-				Generated {new Date(summary.generatedAt).toLocaleDateString()} via {summary.model.replace(/-\d{8}$/, '')}
+				Generated {new Date(summary.generatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(summary.generatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} via {summary.model.replace(/-\d{8}$/, '')}
 			</p>
 		{:else if form && !form.success}
 			<div class="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">

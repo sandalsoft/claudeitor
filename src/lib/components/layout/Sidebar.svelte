@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { navigation, navSections } from '$lib/stores/navigation';
+	import { navigation, navSections } from '$lib/stores/navigation.svelte';
 	import Icon from './Icon.svelte';
 
 	// Check if a path is the active route

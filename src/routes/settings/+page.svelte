@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/layout/Icon.svelte';
-	import { theme, type ThemeMode } from '$lib/stores/theme';
+	import { theme, type ThemeMode } from '$lib/stores/theme.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
