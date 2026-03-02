@@ -1,0 +1,131 @@
+{
+  "created_at": "2026-03-02T02:38:01.861772Z",
+  "epic": {
+    "data": {
+      "branch_name": "fn-3-live-session-flight-deck",
+      "completion_review_status": "unknown",
+      "completion_reviewed_at": null,
+      "created_at": "2026-03-02T02:34:10.003273Z",
+      "default_impl": null,
+      "default_review": null,
+      "default_sync": null,
+      "depends_on_epics": [
+        "fn-1-claudeitor-coding-activity-dashboard"
+      ],
+      "id": "fn-3-live-session-flight-deck",
+      "next_task": 1,
+      "plan_review_status": "unknown",
+      "plan_reviewed_at": null,
+      "spec_path": ".flow/specs/fn-3-live-session-flight-deck.md",
+      "status": "open",
+      "title": "Live Session Flight Deck",
+      "updated_at": "2026-03-02T02:35:04.868606Z"
+    },
+    "spec": "# Live Session Flight Deck\n\n## Overview\n\nTransform the existing `/live` route from a basic active-sessions list into a real-time flight deck that shows active Claude Code sessions as they happen: live token counters, file activity tracking, tool call feeds, rolling cost estimates, and token burn rate charts. Think airport flight tracker for your AI coding copilot.\n\n**Why**: Claudeitor is currently a rearview mirror \u2014 you see what happened *after* sessions end. The flight deck makes it a windshield. Users watching token counts climb in real-time naturally write tighter prompts, catch runaway sessions, and feel in control of spend.\n\n**Who's affected**:\n- **End users**: New real-time UI on `/live` replacing the basic active session cards\n- **Developers**: New server-side JSONL tailing infrastructure, expanded types\n- **Operations**: Faster polling interval (10s default), incremental file reads\n\n## Scope\n\n### In scope\n- Enhanced `/live` route with real-time session telemetry\n- Per-session flight cards: model, duration timer, live token counter (input/output/cache), rolling cost estimate\n- Live file activity feed: files being Read/Edited/Written with recency indicators\n- Tool call feed: streaming list of tool invocations with success/error status\n- Token burn rate chart (D3.js): tokens/minute over session lifetime\n- Multi-session support with prioritized display (highest activity first)\n- Incremental JSONL tailing with byte offset tracking for performance\n- Graceful handling: no active sessions, session starts/ends during view, corrupted JSONL\n\n### Out of scope\n- SSE-based real-time updates (evaluate in future iteration \u2014 current architecture uses polling for `/live`)\n- Kill switch / session termination controls\n- Session budget caps / alerts\n- Projected final cost (requires historical session length data)\n\n## Approach\n\nEnhance the existing `/live` route infrastructure (`src/routes/live/+page.svelte`, `src/routes/live/+page.server.ts`). Reuse:\n- `detectActiveSessions()` from `src/lib/server/claude/active-sessions.ts` for session discovery\n- Cost calculation from `src/lib/server/claude/cost-calculator.ts`\n- Model mapping from `src/lib/server/claude/model-mapping.ts`\n- D3 chart patterns from `src/lib/components/charts/ActivityChart.svelte`\n- Chart helpers from `src/lib/utils/chart-helpers.ts`\n- Polling pattern already in `/live` route (recursive setTimeout + invalidateAll)\n- Badge, Icon components from existing UI library\n\n**Polling strategy**: Reduce default polling interval from 30s to 10s for the flight deck. The existing recursive setTimeout pattern in `/live` already supports configurable intervals.\n\n**JSONL tailing**: New server-side utility that tracks byte offsets per session file. On each poll, reads only new bytes appended since last read. Falls back to full parse on first read or when offset is stale.\n\n**Data flow**: Poll \u2192 detectActiveSessions \u2192 for each active session, tail its JSONL \u2192 extract token counts, tool calls, file mutations \u2192 calculate rolling cost \u2192 return enriched session objects \u2192 render flight cards + charts.\n\n## Quick commands\n\n```bash\n# Dev server\npnpm dev\n\n# Type check\npnpm check\n\n# Run tests\npnpm test\n\n# Smoke test: verify /live loads with active session data\ncurl -s http://127.0.0.1:5173/live | grep -o 'flight-deck\\|session-card\\|token-counter'\n```\n\n## Acceptance\n\n- [ ] `/live` route shows enriched flight cards for each active Claude Code session\n- [ ] Each flight card displays: model name, session duration timer, live token counts (input/output/cache read/write), rolling cost estimate\n- [ ] File activity feed shows files touched during session with recency indicators\n- [ ] Tool call feed shows recent tool invocations with success/error status\n- [ ] D3.js burn rate chart shows tokens/minute over session lifetime\n- [ ] Polling interval defaults to 10s (configurable via `refreshInterval`)\n- [ ] Incremental JSONL tailing avoids re-parsing entire files on each poll\n- [ ] Graceful empty state when no sessions are active\n- [ ] Handles session start/end during active viewing without errors\n- [ ] All new code type-checks with `pnpm check`\n- [ ] Tests pass: `pnpm test`\n\n## Architecture\n\n```mermaid\ngraph TD\n    A[/live +page.svelte] -->|poll every 10s| B[/live +page.server.ts]\n    B --> C[detectActiveSessions]\n    B --> D[tailSessionJSONL]\n    D --> E[byte offset tracker]\n    D --> F[token extractor]\n    D --> G[tool call extractor]\n    D --> H[file mutation extractor]\n    B --> I[calculateSessionCost]\n    I --> J[pricing data]\n    I --> K[model mapping]\n    B -->|enriched sessions| A\n    A --> L[FlightCard component]\n    A --> M[BurnRateChart D3]\n    A --> N[ToolCallFeed]\n    A --> O[FileActivityFeed]\n```\n\n## References\n\n- Feature spec: `FEATURES.md` lines 19-37\n- Existing /live route: `src/routes/live/+page.svelte`, `src/routes/live/+page.server.ts`\n- Active session detection: `src/lib/server/claude/active-sessions.ts`\n- Session JSONL parser: `src/lib/server/claude/session-detail.ts`\n- Cost calculator: `src/lib/server/claude/cost-calculator.ts`\n- Model mapping: `src/lib/server/claude/model-mapping.ts`\n- D3 chart pattern: `src/lib/components/charts/ActivityChart.svelte`\n- Chart helpers: `src/lib/utils/chart-helpers.ts`\n- Chokidar watcher: `src/lib/server/watcher.ts`\n\n## Risks & Mitigations\n\n| Risk | Mitigation |\n|------|------------|\n| Large JSONL files (50MB+) cause slow tailing | Byte offset tracking; cap extracted data per poll |\n| Rapid session churn missed by 10s polling | Detect sessions by process table, not file appearance |\n| Multiple active sessions overwhelm UI | Sort by activity, show top 5 with \"N more\" collapse |\n| D3 chart memory leak on long sessions | Fixed-size rolling window (last 30 data points) |\n| Session JSONL format changes | Graceful fallback: show what we can parse, warn on unknown |\n"
+  },
+  "epic_id": "fn-3-live-session-flight-deck",
+  "schema_version": 2,
+  "tasks": [
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T02:35:32.607032Z",
+        "depends_on": [],
+        "epic": "fn-3-live-session-flight-deck",
+        "id": "fn-3-live-session-flight-deck.1",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-3-live-session-flight-deck.1.md",
+        "status": "todo",
+        "title": "Incremental JSONL tailer with token and tool call extraction",
+        "updated_at": "2026-03-02T02:37:27.739592Z"
+      },
+      "id": "fn-3-live-session-flight-deck.1",
+      "runtime": null,
+      "spec": "# fn-3-live-session-flight-deck.1 Incremental JSONL tailer with token and tool call extraction\n\n## Description\nBuild a server-side incremental JSONL tailer that reads active session files efficiently by tracking byte offsets. On each invocation, read only new bytes appended since last call. Extract structured data: token counts (input/output/cacheRead/cacheWrite), tool call invocations (name, status, timestamp), and file mutations (path, operation type).\n\n**Size:** M\n**Files:**\n- `src/lib/server/claude/session-tailer.ts` (NEW)\n- `src/lib/data/types.ts` (add new interfaces)\n- `src/lib/server/claude/session-tailer.test.ts` (NEW)\n\n## Approach\n\n- Follow the streaming JSONL parser pattern at `src/lib/server/claude/session-detail.ts:112-307` but adapt for incremental reads using `fs.open()` with byte offset positioning via `read(buffer, 0, length, position)`\n- Store per-session state in a `Map<sessionId, { byteOffset: number, lastModified: number }>` \u2014 use a factory function (NOT module-level mutable default per MEMORY.md pitfalls)\n- Each JSONL line contains a JSON object with `type` field \u2014 look for `assistant` messages with `content` arrays containing `tool_use`/`tool_result` blocks, and `usage` objects with token counts\n- Reuse `SessionMessage` shape from `src/lib/server/claude/session-detail.ts` for message parsing; derive new `LiveSessionTelemetry` interface for the aggregated output\n- Handle edge cases: file truncated/rotated (byteOffset > file size \u2192 reset to 0), partial line at end of file (buffer trailing incomplete line for next read), empty reads (no new data)\n- Export `createSessionTailer()` factory that returns `{ tail(sessionId, filePath): Promise<LiveSessionTelemetry>, reset(sessionId): void, resetAll(): void }`\n\n## Key context\n\n- Session JSONL files live at `~/.claude/projects/<project-hash>/sessions/<session-id>.jsonl`\n- The `detectActiveSessions()` function in `active-sessions.ts` returns `sessionId` and `project` fields that can be used to locate the JSONL file\n- Token fields in JSONL: look for `usage.input_tokens`, `usage.output_tokens`, `usage.cache_read_input_tokens`, `usage.cache_creation_input_tokens` in assistant message blocks\n- Tool calls appear as `content` array items with `type: \"tool_use\"` (invocation) and `type: \"tool_result\"` (result with `is_error` boolean)\n- File mutations: extract from tool_use blocks where `name` is \"Read\", \"Edit\", \"Write\", or \"Bash\" \u2014 the `input` object contains file paths\n## Acceptance\n- [ ] `createSessionTailer()` factory returns tailer instance with `tail()`, `reset()`, `resetAll()` methods\n- [ ] `tail()` reads only bytes after stored offset (verified by test with mock JSONL file that grows between calls)\n- [ ] Returns `LiveSessionTelemetry` with: `tokens: { input, output, cacheRead, cacheWrite }`, `toolCalls: Array<{ name, status, timestamp }>`, `filesMutated: Array<{ path, operation }>`, `messageCount: number`, `model: string`\n- [ ] Handles file truncation gracefully (offset > fileSize \u2192 reset to 0)\n- [ ] Handles partial lines at file end (no crash, buffers for next read)\n- [ ] New types exported from `src/lib/data/types.ts`: `LiveSessionTelemetry`, `LiveToolCall`, `LiveFileMutation`\n- [ ] Unit tests cover: first read (full parse), incremental read (only new data), file truncation reset, empty read (no new data), malformed JSON lines (skip with warning)\n- [ ] `pnpm check` passes\n- [ ] `pnpm test` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T02:35:37.851608Z",
+        "depends_on": [
+          "fn-3-live-session-flight-deck.1"
+        ],
+        "epic": "fn-3-live-session-flight-deck",
+        "id": "fn-3-live-session-flight-deck.2",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-3-live-session-flight-deck.2.md",
+        "status": "todo",
+        "title": "Flight deck server load with enriched session data",
+        "updated_at": "2026-03-02T02:37:29.737540Z"
+      },
+      "id": "fn-3-live-session-flight-deck.2",
+      "runtime": null,
+      "spec": "# fn-3-live-session-flight-deck.2 Flight deck server load with enriched session data\n\n## Description\nRewrite the `/live` route server load function to return enriched session data suitable for the flight deck. For each active session detected, tail its JSONL to get live token counts, tool calls, and file activity, then compute rolling cost estimates using existing cost calculation utilities.\n\n**Size:** M\n**Files:**\n- `src/routes/live/+page.server.ts` (MODIFY)\n- `src/lib/server/claude/active-sessions.ts` (minor: ensure sessionId field is populated)\n\n## Approach\n\n- Enhance the existing `load` function at `src/routes/live/+page.server.ts` \u2014 keep the parallel loading pattern but replace/extend the data returned\n- For each active session from `detectActiveSessions()`, call `tailer.tail(sessionId, filePath)` to get `LiveSessionTelemetry`\n- Compute cost using `calculateTokenCost()` from `src/lib/server/claude/cost-calculator.ts:34-53` with pricing from `readPricing()`\n- Map model IDs to display names using `mapModelId()` from `src/lib/server/claude/model-mapping.ts`\n- Return `EnrichedActiveSession` objects that extend `ActiveSession` with telemetry data, cost, and mapped model name\n- Reduce default refresh interval to 10_000 (10s) \u2014 keep it configurable via `config.refreshInterval`\n- Wrap with `withSpan()` for telemetry (follow pattern at `src/routes/sessions/[id]/+page.server.ts:15-39`)\n- Session JSONL path construction: `path.join(claudeDir, 'projects', projectHash, 'sessions', sessionId + '.jsonl')` \u2014 need to discover the project hash from the session's working directory\n\n## Key context\n\n- The `detectActiveSessions()` function parses `ps` output and returns `ActiveSession` objects with `pid`, `cpuPercent`, `memPercent`, `command`, `project`, `sessionId`\n- The `project` field is the working directory path; the project hash used in `~/.claude/projects/` is derived from this path\n- Pricing data: `readPricing()` from `src/lib/server/claude/costs.ts` reads `~/.claude/readout-pricing.json`\n- The existing load function at `src/routes/live/+page.server.ts` uses TTL caching for activity events \u2014 preserve or adapt this pattern\n## Acceptance\n- [ ] Load function returns `EnrichedActiveSession[]` with telemetry, cost, and display model name for each active session\n- [ ] Each enriched session includes: all `ActiveSession` fields + `telemetry: LiveSessionTelemetry` + `cost: number` + `displayModel: string` + `durationMs: number`\n- [ ] Cost calculated using existing `calculateTokenCost()` with current pricing data\n- [ ] Model names mapped via `mapModelId()` for human-readable display\n- [ ] Default polling interval reduced to 10_000ms (10 seconds)\n- [ ] Handles zero active sessions gracefully (returns empty array)\n- [ ] Handles sessions where JSONL file cannot be located (returns session with null telemetry)\n- [ ] Instrumented with `withSpan()` telemetry\n- [ ] `pnpm check` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T02:35:39.085024Z",
+        "depends_on": [],
+        "epic": "fn-3-live-session-flight-deck",
+        "id": "fn-3-live-session-flight-deck.3",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-3-live-session-flight-deck.3.md",
+        "status": "todo",
+        "title": "FlightCard component with live token counters and cost display",
+        "updated_at": "2026-03-02T02:37:30.941528Z"
+      },
+      "id": "fn-3-live-session-flight-deck.3",
+      "runtime": null,
+      "spec": "# fn-3-live-session-flight-deck.3 FlightCard component with live token counters and cost display\n\n## Description\nCreate the `FlightCard` Svelte 5 component that displays a single active session's real-time telemetry: model badge, duration timer, live token counters (input/output/cache), rolling cost estimate, and a compact file activity indicator.\n\n**Size:** M\n**Files:**\n- `src/lib/components/live/FlightCard.svelte` (NEW)\n- `src/lib/components/live/TokenCounter.svelte` (NEW)\n- `src/lib/components/live/DurationTimer.svelte` (NEW)\n\n## Approach\n\n- Use Svelte 5 runes: `$props()` for data input, `$derived()` for computed values, `$effect()` for the duration timer interval\n- Follow component patterns from `src/lib/components/cards/SessionCard.svelte` for card layout and styling\n- Use semantic Tailwind v4 color tokens (`text-foreground`, `bg-card`, `border-border` etc.) matching existing design system\n- `DurationTimer`: Accept `startTime` prop, use `$effect()` with `setInterval(1000)` to tick a reactive `$state` elapsed counter \u2014 format as HH:MM:SS\n- `TokenCounter`: Accept token counts object, render with `formatNumber()` from `src/lib/utils/chart-helpers.ts` \u2014 animate count changes with CSS transitions\n- `FlightCard` layout: header (model badge + duration), body (token grid + cost), footer (file count + tool call count)\n- Model badge: Use `Badge.svelte` from `src/lib/components/ui/Badge.svelte` with variant based on model family (opus=default, sonnet=secondary, haiku=outline)\n- Cost display: Use `formatCurrency()` from `src/lib/utils/chart-helpers.ts`\n- Reuse `Icon.svelte` for decorative icons (clock, coins, file-text, terminal)\n\n## Key context\n\n- Svelte 5 timer pattern: `$effect(() => { const id = setInterval(...); return () => clearInterval(id); })`\n- Badge variants available: default, secondary, success, warning, destructive, outline\n- Token types to display: Input, Output, Cache Read, Cache Write \u2014 use a 2x2 grid\n## Acceptance\n- [ ] `FlightCard.svelte` renders an enriched active session as a card with model badge, duration, tokens, cost, and activity summary\n- [ ] `DurationTimer.svelte` ticks every second showing elapsed HH:MM:SS since session start\n- [ ] `TokenCounter.svelte` displays token counts with `formatNumber()` formatting\n- [ ] Model badge uses appropriate variant based on model family\n- [ ] Cost displayed with `formatCurrency()` from chart helpers\n- [ ] File count and tool call count shown in card footer\n- [ ] All components use Svelte 5 runes ($props, $derived, $effect) \u2014 no legacy stores or reactive declarations\n- [ ] Styling uses semantic Tailwind v4 tokens matching existing design system\n- [ ] Timer cleanup: `$effect` returns cleanup function that clears interval\n- [ ] `pnpm check` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T02:35:40.528878Z",
+        "depends_on": [],
+        "epic": "fn-3-live-session-flight-deck",
+        "id": "fn-3-live-session-flight-deck.4",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-3-live-session-flight-deck.4.md",
+        "status": "todo",
+        "title": "D3 burn rate chart and activity feed components",
+        "updated_at": "2026-03-02T02:37:32.702406Z"
+      },
+      "id": "fn-3-live-session-flight-deck.4",
+      "runtime": null,
+      "spec": "# fn-3-live-session-flight-deck.4 D3 burn rate chart and activity feed components\n\n## Description\nBuild the D3.js token burn rate chart and the tool call / file activity feed components. The burn rate chart shows tokens-per-minute over the session lifetime as a line chart with a rolling 30-point window. The feeds show recent tool invocations and file mutations.\n\n**Size:** M\n**Files:**\n- `src/lib/components/live/BurnRateChart.svelte` (NEW)\n- `src/lib/components/live/ToolCallFeed.svelte` (NEW)\n- `src/lib/components/live/FileActivityFeed.svelte` (NEW)\n\n## Approach\n\n- **BurnRateChart**: Follow the D3 pattern at `src/lib/components/charts/ActivityChart.svelte` \u2014 use `bind:this` for container, `$effect()` for D3 rendering, responsive sizing via `computeDimensions()` from `src/lib/utils/chart-helpers.ts`\n- Chart data: Accept `tokenHistory: Array<{ timestamp: number, tokensPerMinute: number }>` \u2014 render as a line chart with time on x-axis, tokens/min on y-axis\n- Use a fixed 30-point rolling window to prevent memory growth on long sessions\n- D3 scales: `scaleTime()` for x, `scaleLinear()` for y. Use `CHART_COLORS` from chart-helpers for line color\n- On each data update, transition the line path smoothly (D3 `transition().duration(300)`)\n- **ToolCallFeed**: Simple scrollable list of recent tool calls (last 20). Each item shows: icon (based on tool name), tool name, status badge (success/error), relative timestamp\n- **FileActivityFeed**: List of recently touched files with operation type indicator (Read/Edit/Write). Show recency via relative time (\"3s ago\"). Cap at 15 items with newest first\n- Both feeds: Use `Icon.svelte` for decorative icons. Follow the list styling pattern from session detail's files list at `src/routes/sessions/[id]/+page.svelte:136-141`\n\n## Key context\n\n- D3 v7 is installed (`d3@7.9`). Import only needed modules: `select`, `scaleTime`, `scaleLinear`, `line`, `axisBottom`, `axisLeft`, `transition`\n- `computeDimensions()` returns `{ width, height, margin }` for responsive chart sizing\n- The tool call feed should distinguish between in-progress calls (spinner icon) and completed ones (check/x icon)\n## Acceptance\n- [ ] `BurnRateChart.svelte` renders a D3 line chart of tokens/minute over time\n- [ ] Chart uses rolling 30-point window (no unbounded growth)\n- [ ] Chart is responsive (uses `computeDimensions()` pattern)\n- [ ] Line path transitions smoothly on data updates (D3 transition)\n- [ ] `ToolCallFeed.svelte` shows last 20 tool calls with name, status icon, and relative timestamp\n- [ ] `FileActivityFeed.svelte` shows last 15 file mutations with path, operation type, and recency indicator\n- [ ] Both feeds scroll and show newest items first\n- [ ] All components use Svelte 5 runes and Tailwind v4 semantic tokens\n- [ ] `pnpm check` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T02:35:45.213345Z",
+        "depends_on": [
+          "fn-3-live-session-flight-deck.2",
+          "fn-3-live-session-flight-deck.3",
+          "fn-3-live-session-flight-deck.4"
+        ],
+        "epic": "fn-3-live-session-flight-deck",
+        "id": "fn-3-live-session-flight-deck.5",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-3-live-session-flight-deck.5.md",
+        "status": "todo",
+        "title": "Assemble flight deck page with polling and empty states",
+        "updated_at": "2026-03-02T02:37:33.726443Z"
+      },
+      "id": "fn-3-live-session-flight-deck.5",
+      "runtime": null,
+      "spec": "# fn-3-live-session-flight-deck.5 Assemble flight deck page with polling and empty states\n\n## Description\nAssemble all flight deck components into the `/live` route page. Replace the existing basic session list with the full flight deck layout. Wire up the 10-second polling loop, handle empty states, manage token history accumulation for burn rate charts, and ensure smooth transitions when sessions start/end.\n\n**Size:** M\n**Files:**\n- `src/routes/live/+page.svelte` (REWRITE)\n- `src/routes/live/+page.server.ts` (minor polish if needed)\n\n## Approach\n\n- Rewrite the existing `/live` page component at `src/routes/live/+page.svelte` to use the new flight deck components\n- Keep the existing polling pattern (recursive `setTimeout` + `invalidateAll()`) but with 10s default interval from server data\n- Layout: Header with \"Live Flight Deck\" title + session count badge \u2192 Grid of `FlightCard` components (1-col on mobile, 2-col on desktop) \u2192 Expanded view for selected session showing `BurnRateChart`, `ToolCallFeed`, `FileActivityFeed`\n- Maintain per-session token history in a `$state` Map for burn rate chart data: on each poll, calculate tokens-per-minute delta and append to the session's history array (capped at 30 points)\n- Empty state: When no active sessions, show a centered illustration with \"No active Claude sessions\" message and a hint to start one (follow empty state pattern at `src/routes/sessions/[id]/+page.svelte:113-120`)\n- Session lifecycle: When a session disappears between polls (ended), fade it out with a \"Session ended\" badge. When a new session appears, fade it in\n- Selected session: Click a `FlightCard` to expand and show the detail feeds (burn rate, tool calls, files). Use a `$state` selectedSessionId. Default to first session if only one active\n- Sort sessions by total token count descending (most active first)\n\n## Key context\n\n- The existing polling pattern at `src/routes/live/+page.svelte` uses `$effect()` with `invalidateAll()` \u2014 this triggers the server `load` function to re-run, which SvelteKit merges into `data`\n- Svelte 5 transition directives: use `transition:fade` or `in:fly` for session appear/disappear animations\n- The `data.refreshInterval` from server controls poll speed (now 10_000ms default)\n## Acceptance\n- [ ] `/live` route renders flight deck with `FlightCard` for each active session\n- [ ] Polling runs at 10-second intervals using existing recursive setTimeout + invalidateAll pattern\n- [ ] Empty state shown when no sessions active (icon + message + hint)\n- [ ] Per-session token history maintained in client state for burn rate chart (30-point rolling window)\n- [ ] Clicking a FlightCard expands it to show BurnRateChart, ToolCallFeed, FileActivityFeed\n- [ ] Sessions sorted by activity (total tokens descending)\n- [ ] Session end handled gracefully (fade out with \"ended\" indicator)\n- [ ] New session appearance handled (fade in)\n- [ ] Responsive layout: 1-col mobile, 2-col desktop for flight cards\n- [ ] All Svelte 5 runes, Tailwind v4 tokens, no legacy patterns\n- [ ] `pnpm check` passes\n- [ ] `pnpm test` passes\n- [ ] Manual smoke test: with an active Claude session, `/live` shows real-time data updating every 10s\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    }
+  ]
+}

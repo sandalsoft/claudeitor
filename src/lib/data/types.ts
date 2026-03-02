@@ -130,3 +130,33 @@ export interface SettingsData {
 	hooks: Record<string, HookMatcher[]>;
 	enabledPlugins: Record<string, boolean>;
 }
+
+// ─── Live Session Telemetry (session tailer) ─────────────────
+
+export interface LiveToolCall {
+	id: string;
+	name: string;
+	status: 'success' | 'error' | 'pending';
+	filePath?: string;
+	timestamp: string;
+}
+
+export interface LiveFileMutation {
+	filePath: string;
+	toolName: string;
+	operation: 'read' | 'edit' | 'write' | 'notebook_edit' | 'other';
+	timestamp: string;
+}
+
+export interface LiveSessionTelemetry {
+	tokens: {
+		input: number;
+		output: number;
+		cacheRead: number;
+		cacheWrite: number;
+	};
+	recentToolCalls: LiveToolCall[];
+	recentFiles: LiveFileMutation[];
+	messageCount: number;
+	model: string;
+}
