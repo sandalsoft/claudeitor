@@ -38,9 +38,8 @@ Create the `FlightCard` Svelte 5 component that displays a single active session
 - [ ] Timer cleanup: `$effect` returns cleanup function that clears interval
 - [ ] `pnpm check` passes
 ## Done summary
-TBD
-
+Created FlightCard, DurationTimer, and TokenCounter Svelte 5 components for the live session flight deck. FlightCard renders enriched active sessions with model badge (variant by family), live HH:MM:SS duration timer, 2x2 token counter grid, rolling cost display, and file/tool call/message counts in the footer. All components use Svelte 5 runes and semantic Tailwind v4 tokens.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 7b2a2d00a6a38a55cacad20a7ebf2b635fe4b3b8
+- Tests: pnpm check
 - PRs:
