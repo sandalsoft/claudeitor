@@ -42,9 +42,8 @@ Implement the /env and /ports routes.
 - [ ] Both routes use `withSpan()` instrumentation
 - [ ] `pnpm check` passes
 ## Done summary
-TBD
-
+Implemented /env and /ports routes replacing ComingSoon stubs. /env scans discovered repos for .env variable NAMES (never values) with filtering and per-repo aggregation. /ports uses execFile('lsof') with safe array args, parses (LISTEN) from NAME field, deduplicates IPv4/IPv6 by PID+port, detects port conflicts, with 30s server-side cache bypassed via ?refresh=1. Both readers separate exec from parse with 32 unit tests using fixture strings. New safeExecFile wrapper always returns {stdout, stderr, exitCode, timedOut}. Both routes use withSpan() instrumentation.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: e2485ad636a9c2a21323c8b19795aee31b55386e
+- Tests: pnpm test, pnpm check
 - PRs:
