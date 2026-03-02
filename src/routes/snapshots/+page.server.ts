@@ -85,8 +85,8 @@ export const load: PageServerLoad = async ({ url }) => {
 			});
 			await Promise.all(fileCountPromises);
 
-			// Summary stats
-			const uniqueRepos = new Set(allEntries.map((e) => e.repo));
+			// Summary stats — repoCount from discovered repos (not commits),
+			// so we correctly show "no commits" vs "no repos" empty states.
 			const uniqueAuthors = new Set(allEntries.map((e) => e.authorName));
 
 			return {
@@ -95,7 +95,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				page: clampedPage,
 				totalPages,
 				pageSize: PAGE_SIZE,
-				repoCount: uniqueRepos.size,
+				repoCount: gitResult.repos.length,
 				authorCount: uniqueAuthors.size,
 				errors: gitResult.errors
 			};
