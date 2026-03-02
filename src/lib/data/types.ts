@@ -161,6 +161,35 @@ export interface LiveSessionTelemetry {
 	model: string;
 }
 
+// ─── Setup Check (/setup) ─────────────────────────────────────
+
+export type SetupStatus = 'ok' | 'warn' | 'error';
+
+export interface SetupCheck {
+	label: string;
+	status: SetupStatus;
+	detail: string;
+}
+
+// ─── Extensions (/extensions) ─────────────────────────────────
+
+export interface PluginSummary {
+	id: string;
+	enabled: boolean;
+	version: string;
+	scope: string;
+	installedAt: string;
+}
+
+export interface ExtensionsSummary {
+	skillCount: number;
+	agentCount: number;
+	plugins: PluginSummary[];
+	mcpServerCount: number;
+	mcpServerNames: string[];
+	hookCount: number;
+}
+
 // ─── Enriched Active Session (flight deck) ───────────────────
 
 export interface EnrichedActiveSession {

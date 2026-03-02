@@ -1,0 +1,21 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-02T12:07:11.945100Z",
+  "depends_on": [
+    "fn-4-implement-all-stubbed-dashboard-routes.1",
+    "fn-4-implement-all-stubbed-dashboard-routes.2",
+    "fn-4-implement-all-stubbed-dashboard-routes.3",
+    "fn-4-implement-all-stubbed-dashboard-routes.4",
+    "fn-4-implement-all-stubbed-dashboard-routes.5",
+    "fn-4-implement-all-stubbed-dashboard-routes.6"
+  ],
+  "epic": "fn-4-implement-all-stubbed-dashboard-routes",
+  "id": "fn-4-implement-all-stubbed-dashboard-routes.7",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-4-implement-all-stubbed-dashboard-routes.7.md",
+  "status": "todo",
+  "title": "Cleanup: remove stub flags, update README, final tests",
+  "updated_at": "2026-03-02T12:09:25.357941Z"
+}

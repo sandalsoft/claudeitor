@@ -1,0 +1,20 @@
+{
+  "branch_name": "fn-4-implement-all-stubbed-dashboard-routes",
+  "completion_review_status": "unknown",
+  "completion_reviewed_at": null,
+  "created_at": "2026-03-02T12:05:46.036646Z",
+  "default_impl": null,
+  "default_review": null,
+  "default_sync": null,
+  "depends_on_epics": [
+    "fn-1-claudeitor-coding-activity-dashboard"
+  ],
+  "id": "fn-4-implement-all-stubbed-dashboard-routes",
+  "next_task": 1,
+  "plan_review_status": "unknown",
+  "plan_reviewed_at": null,
+  "spec_path": ".flow/specs/fn-4-implement-all-stubbed-dashboard-routes.md",
+  "status": "open",
+  "title": "Implement All Stubbed Dashboard Routes",
+  "updated_at": "2026-03-02T12:39:53.044710Z"
+}

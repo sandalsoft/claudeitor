@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-02T12:07:04.250396Z",
+  "depends_on": [],
+  "epic": "fn-4-implement-all-stubbed-dashboard-routes",
+  "id": "fn-4-implement-all-stubbed-dashboard-routes.5",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-4-implement-all-stubbed-dashboard-routes.5.md",
+  "status": "todo",
+  "title": "Repository Visualization routes (/work-graph, /repo-pulse)",
+  "updated_at": "2026-03-02T12:39:53.769918Z"
+}

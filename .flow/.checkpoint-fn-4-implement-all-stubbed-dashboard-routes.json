@@ -1,0 +1,170 @@
+{
+  "created_at": "2026-03-02T12:51:57.005549Z",
+  "epic": {
+    "data": {
+      "branch_name": "fn-4-implement-all-stubbed-dashboard-routes",
+      "completion_review_status": "unknown",
+      "completion_reviewed_at": null,
+      "created_at": "2026-03-02T12:05:46.036646Z",
+      "default_impl": null,
+      "default_review": null,
+      "default_sync": null,
+      "depends_on_epics": [
+        "fn-1-claudeitor-coding-activity-dashboard"
+      ],
+      "id": "fn-4-implement-all-stubbed-dashboard-routes",
+      "next_task": 1,
+      "plan_review_status": "unknown",
+      "plan_reviewed_at": null,
+      "spec_path": ".flow/specs/fn-4-implement-all-stubbed-dashboard-routes.md",
+      "status": "open",
+      "title": "Implement All Stubbed Dashboard Routes",
+      "updated_at": "2026-03-02T12:39:53.044710Z"
+    },
+    "spec": "# Implement All Stubbed Dashboard Routes\n\n## Overview\n\nReplace all 12 `ComingSoon` placeholder pages with functional dashboard routes. Each route reads from local data sources (`~/.claude/`, git repos, system commands) and follows the established pattern: `withSpan` server load \u2192 StatCards + content components with Svelte 5 runes.\n\n**Why**: The sidebar shows 12 grayed-out stubs. Shipping real content for each transforms Claudeitor from a partial dashboard into a comprehensive developer command center. Every route uses only local data \u2014 no external APIs required.\n\n**Network caveat**: `/deps` uses `npm audit` and `npm outdated` which call the npm registry. These are treated as best-effort: timeouts and offline states are handled gracefully with a clear \"unavailable\" fallback. All other routes are fully offline-capable.\n\n**Who's affected**:\n- **End users**: 12 new functional pages replacing placeholders\n- **Developers**: New server-side readers for ports, env, worktrees, deps, lint\n- **Operations**: New shell commands spawned (lsof, npm audit, git worktree list, eslint)\n\n## Critical: repoDirs vs discovered repos\n\n`config.repoDirs` are **scan roots**, NOT repo roots. Routes MUST use `scanRepos(config.repoDirs)` to discover actual repos, then operate on each `repo.path`.\n\n## Critical: Command execution safety (NEW code only)\n\nAll **NEW** shell commands introduced in this epic MUST use `execFile` (or `exec` with `cwd`) with arguments as arrays. Never interpolate paths/branch names into command strings. The existing `src/lib/server/git/scanner.ts` uses `execAsync` with template strings \u2014 that is out of scope for this epic and will NOT be refactored here. The safety requirement applies only to new commands added by tasks 2\u20136.\n\n## Critical: Server\u2192client serialization safety\n\nNever return raw settings objects to the client. `SettingsData.env` contains secrets. `SettingsData.hooks` contains shell commands. Server loads MUST return explicitly safe shapes: counts, derived metadata, booleans \u2014 never raw config/settings.\n\n## Critical: Non-zero exit code handling\n\n`npm audit`, `npm outdated`, `eslint`, `tsc` all exit non-zero when they successfully find issues. All exec wrappers MUST capture `{ stdout, stderr, exitCode, timedOut }` on BOTH success and failure. Node's `execFile` throws on non-zero exit but includes `stdout`/`stderr` on the error object \u2014 wrappers must extract these from the error. Never discard output on non-zero exit.\n\n## Scope\n\n### In scope\n- 12 route implementations replacing `ComingSoon` stubs\n- New server readers: port scanner, env parser, worktree reader, dep auditor, lint aggregator\n- D3.js branch graph visualization for /work-graph\n- All new types in `src/lib/data/types.ts` (single source of truth for NEW serialized types)\n- Empty states for missing data\n- Remove `stub: true` flags from navigation\n- Update README.md route listing\n\n### Out of scope\n- Refactoring existing scanner.ts to use execFile (separate follow-up)\n- GitHub API integration\n- Real-time polling for new routes\n- Plugin installation/removal from /extensions UI\n- Cross-platform lsof alternatives\n- Package manager detection beyond npm\n\n### Scope decisions\n- **/env**: NAMES only. Scan discovered repo roots. Broad key pattern with optional spaces around `=`.\n- **/work-graph**: Hub-and-spoke, 100 branches total, namespaced IDs. Filter out `*/HEAD` symbolic refs.\n- **/snapshots**: Git commits from scanRepos (30-day window, documented in UI). `--numstat` for file counts.\n- **/extensions**: Merge installed_plugins.json with enabledPlugins (`Record<string, boolean>`). Never return settings.env or hooks commands. Only return counts for hooks.\n- **/deps**: npm only. Best-effort. Exec returns `{ stdout, stderr, exitCode, timedOut }` always. Use `execFile('npm', ['audit', '--json'])`.\n- **/lint**: Local executables only. Same exec wrapper pattern. Concatenate stdout+stderr for tsc.\n- **/ports**: macOS lsof. `(LISTEN)` parsing from NAME field. IPv4/IPv6 dedup. 30s cache with `?refresh=1` bypass.\n- **/setup**: All checks driven from `config.claudeDir` (not hardcoded `~/.claude/`). Config file: stat + JSON.parse for 3-state check.\n- **/hygiene**: \"Behind upstream\" = current branch vs @{u}. Stale branches = no commits in 60 days, excluding current branch. Show count + oldest 10.\n- **/repo-pulse**: All metrics from RepoInfo fields only. No branch count v1. Use `authorName`/`authorEmail` (real field names from `RepoCommit` type, not `author`).\n\n### Task parallelism and types.ts\n\nAll tasks add types to `src/lib/data/types.ts`. This means tasks are NOT fully parallel-safe (merge conflicts possible). In practice: work tasks sequentially (in order) or accept merge conflict resolution. Task 7 runs last by dependency.\n\n### Type placement rule\nAll NEW serialized types go in `src/lib/data/types.ts`. Existing routes grandfathered.\n\n### Testing strategy\nNew readers MUST separate exec from parse. Unit tests exercise parsing with fixture strings. Tests MUST NOT require network or binaries. Exec wrappers always return `{ stdout, stderr, exitCode, timedOut }` regardless of exit code.\n\n## Approach\n\n**Pattern to follow** (from `/repos`):\n- Server: `+page.server.ts` with `withSpan()`, `readConfig()`, `scanRepos()`, safe return shapes\n- Client: `+page.svelte` with `$props()`, `$derived`, StatCards, EmptyState, Icon\n- Types: All new shared types in `src/lib/data/types.ts`\n\n**Exec wrapper pattern** (for all new readers):\n```typescript\n// Signature \u2014 always returns full result, never throws on non-zero exit\nasync function safeExecFile(cmd, args, opts): Promise<{ stdout: string, stderr: string, exitCode: number, timedOut: boolean }>\n```\nThis wrapper catches errors from `execFile`, extracts `stdout`/`stderr` from the error object, and returns a uniform shape.\n\n## Quick commands\n\n```bash\npnpm dev\npnpm check\npnpm test\n```\n\n## Acceptance\n\n- [ ] All 12 stubs replaced (no ComingSoon components)\n- [ ] Each route has +page.server.ts with `withSpan()`\n- [ ] Each route handles empty state gracefully\n- [ ] Routes use scanRepos() discovered paths\n- [ ] All NEW commands use execFile with array args (existing scanner.ts not in scope)\n- [ ] Exec wrappers always return { stdout, stderr, exitCode, timedOut } \u2014 never discard on non-zero exit\n- [ ] No raw settings/config objects returned to client\n- [ ] /env never exposes secret values\n- [ ] /ports handles unsupported platforms; 30s cache with ?refresh=1 bypass\n- [ ] /deps and /lint use on-demand execution\n- [ ] /deps handles offline/timeout\n- [ ] /lint uses local executables only\n- [ ] /work-graph hub-and-spoke with namespaced IDs, filters HEAD refs\n- [ ] `stub: true` removed from navSections\n- [ ] README.md updated\n- [ ] All new types in `src/lib/data/types.ts`\n- [ ] `pnpm check` passes (0 errors)\n- [ ] `pnpm test` passes\n\n## References\n\n- Stub route pattern: `src/routes/setup/+page.svelte`\n- Implemented route pattern: `src/routes/repos/+page.server.ts`\n- Component library: `src/lib/components/`\n- Git scanner: `src/lib/server/git/scanner.ts` (uses execAsync with template strings \u2014 NOT refactored in this epic)\n- Git types: `src/lib/server/git/types.ts` \u2014 `RepoCommit` has `authorName`/`authorEmail` (not `author`)\n- Navigation: `src/lib/stores/navigation.svelte.ts`\n- D3 chart pattern: `src/lib/components/charts/ActivityChart.svelte`\n- Telemetry: `src/lib/server/telemetry/span-helpers.ts`\n\n## Risks & Mitigations\n\n| Risk | Mitigation |\n|------|------------|\n| types.ts merge conflicts between tasks | Work tasks sequentially; accept conflict resolution |\n| Existing scanner uses string interpolation | Out of scope; only new commands use execFile |\n| Non-zero exit discards output | safeExecFile wrapper always captures stdout/stderr |\n| Settings secrets leaked | Explicit safe shapes; counts only for hooks |\n| npm audit slow/offline | On-demand + timeout + stderr heuristics |\n| lsof not available | Graceful fallback empty state |\n| Branch name collisions | Namespaced IDs repoName:branchName |\n| origin/HEAD in branch list | Filter out */HEAD refs |\n| Config claudeDir varies | All checks use config.claudeDir, not hardcoded paths |\n| 30s cache not bypassable | ?refresh=1 query param skips cache |\n"
+  },
+  "epic_id": "fn-4-implement-all-stubbed-dashboard-routes",
+  "schema_version": 2,
+  "tasks": [
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T12:07:03.038750Z",
+        "depends_on": [],
+        "epic": "fn-4-implement-all-stubbed-dashboard-routes",
+        "id": "fn-4-implement-all-stubbed-dashboard-routes.1",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-4-implement-all-stubbed-dashboard-routes.1.md",
+        "status": "todo",
+        "title": "Config & Extensions routes (/setup, /extensions)",
+        "updated_at": "2026-03-02T12:39:53.191986Z"
+      },
+      "id": "fn-4-implement-all-stubbed-dashboard-routes.1",
+      "runtime": null,
+      "spec": "# fn-4-implement-all-stubbed-dashboard-routes.1 Config & Extensions routes (/setup, /extensions)\n\n## Description\nImplement the /setup and /extensions routes.\n\n**Size:** M\n**Files:**\n- `src/routes/setup/+page.server.ts` (NEW)\n- `src/routes/setup/+page.svelte` (REWRITE)\n- `src/routes/extensions/+page.server.ts` (NEW)\n- `src/routes/extensions/+page.svelte` (REWRITE)\n- `src/lib/data/types.ts` (MODIFY \u2014 add SetupCheck, ExtensionItem types)\n\n## Approach\n\n**`/setup`** \u2014 Project configuration health check:\n- All path checks MUST use `config.claudeDir` (not hardcoded `~/.claude/`).\n- Checklist items:\n  - `claude` CLI: `execFile('which', ['claude'])` with 2s timeout, try/catch\n  - Claude dir: `stat(config.claudeDir)`\n  - Config file: THREE-state: (1) `stat(configFilePath)`, (2) if exists, `readFile` + `JSON.parse`. Report: \"missing\" / \"present but malformed\" / \"valid\"\n  - repoDirs: from readConfig(), check `repoDirs.length > 0`\n  - API key: `hasApiKey` boolean\n  - CLAUDE.md: `stat(join(config.claudeDir, 'CLAUDE.md'))` and `stat(join(cwd, 'CLAUDE.md'))`\n  - Skills: `readSkills(config.claudeDir)` \u2192 count > 0\n  - Hooks: `readSettings(config.claudeDir)` \u2192 derive count. `SettingsData.hooks` is `Record<string, HookMatcher[]>`. Aggregate: `Object.values(hooks).reduce((sum, arr) => sum + arr.length, 0)`. Return count only, never hook commands.\n- Display: checklist with green/yellow/red indicators.\n\n**`/extensions`** \u2014 Aggregated view:\n- **NEVER return raw settings to client.** Return only: skillCount, agentCount, pluginList (safe metadata), mcpServerCount, hookCount.\n- Plugins: merge `installed_plugins.json` with `enabledPlugins` (`Record<string, boolean>`):\n  ```\n  enabledIds = Object.entries(enabledPlugins).filter(([,v])=>v).map(([k])=>k)\n  ```\n  Preserve explicit `false` as \"installed but disabled\".\n- MCP servers: read raw settings.json, extract `Object.keys(mcpServers || {}).length`. Return count + names only.\n- Hooks: return count only (aggregated from `Record<string, HookMatcher[]>`). Never return hook commands.\n- Display: sectioned view with counts.\n\n## Key context\n\n- `config.claudeDir` may differ from `~/.claude/` \u2014 use config value everywhere\n- `SettingsData.hooks` is `Record<string, HookMatcher[]>` not a simple array \u2014 aggregate to count\n- `SettingsData.enabledPlugins` is `Record<string, boolean>` not a list\n- `SettingsData.env` is `Record<string, string>` \u2014 SECRET, never return\n\n## Acceptance\n- [ ] /setup uses config.claudeDir for all path checks (no hardcoded ~/.claude/)\n- [ ] /setup distinguishes missing vs malformed vs valid config file\n- [ ] /setup returns only safe data (counts, booleans, status strings)\n- [ ] /extensions correctly handles hooks as Record<string, HookMatcher[]> (returns count only)\n- [ ] /extensions correctly handles enabledPlugins as Record<string, boolean>\n- [ ] /extensions NEVER returns settings.env, hooks commands, or raw config\n- [ ] All new types in `src/lib/data/types.ts`\n- [ ] Both routes use `withSpan()` instrumentation\n- [ ] `pnpm check` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T12:07:03.189949Z",
+        "depends_on": [],
+        "epic": "fn-4-implement-all-stubbed-dashboard-routes",
+        "id": "fn-4-implement-all-stubbed-dashboard-routes.2",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-4-implement-all-stubbed-dashboard-routes.2.md",
+        "status": "todo",
+        "title": "Environment & Ports routes (/env, /ports)",
+        "updated_at": "2026-03-02T12:39:53.341590Z"
+      },
+      "id": "fn-4-implement-all-stubbed-dashboard-routes.2",
+      "runtime": null,
+      "spec": "# fn-4-implement-all-stubbed-dashboard-routes.2 Environment & Ports routes (/env, /ports)\n\n## Description\nImplement the /env and /ports routes.\n\n**Size:** M\n**Files:**\n- `src/lib/server/env/reader.ts` (NEW)\n- `src/routes/env/+page.server.ts` (NEW)\n- `src/routes/env/+page.svelte` (REWRITE)\n- `src/lib/server/system/ports.ts` (NEW)\n- `src/routes/ports/+page.server.ts` (NEW)\n- `src/routes/ports/+page.svelte` (REWRITE)\n- `src/lib/data/types.ts` (MODIFY \u2014 add EnvVariable, PortInfo types)\n\n## Approach\n\n**`/env`** \u2014 same as v4 (no changes needed for round 4 issues).\n\n**`/ports`** \u2014 Active network port monitor:\n- New reader:\n  - `execLsof(): Promise<string>` \u2014 `execFile('lsof', ['-i', '-P', '-n'])`\n  - `parseLsofOutput(stdout: string): PortInfo[]` \u2014 parse `(LISTEN)` from NAME field. Dedup by PID+port (IPv4/IPv6).\n- **Cache with bypass**: 30s server-side cache. Refresh button navigates to `?refresh=1` which forces cache skip. Server load checks `url.searchParams.get('refresh')` to bypass cache.\n- Platform check: `process.platform === 'darwin'`.\n\n## Key context\n\n- lsof `(LISTEN)` appears at end of NAME field, not as column\n- Dedup IPv4+IPv6 entries before conflict detection\n- `?refresh=1` query param bypasses 30s cache\n- All new types in `src/lib/data/types.ts`\n\n## Acceptance\n- [ ] /env uses scanRepos(), matches broad key patterns, never sends values\n- [ ] /ports uses execFile with array args\n- [ ] /ports correctly parses `(LISTEN)` from NAME field\n- [ ] /ports deduplicates IPv4+IPv6 by PID+port\n- [ ] /ports 30s cache bypassed via `?refresh=1` query param\n- [ ] Both readers separate exec from parse; unit tests use fixtures\n- [ ] All new types in `src/lib/data/types.ts`\n- [ ] Both routes use `withSpan()` instrumentation\n- [ ] `pnpm check` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T12:07:03.434890Z",
+        "depends_on": [],
+        "epic": "fn-4-implement-all-stubbed-dashboard-routes",
+        "id": "fn-4-implement-all-stubbed-dashboard-routes.3",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-4-implement-all-stubbed-dashboard-routes.3.md",
+        "status": "todo",
+        "title": "Git Health routes (/hygiene, /worktrees)",
+        "updated_at": "2026-03-02T12:39:53.487024Z"
+      },
+      "id": "fn-4-implement-all-stubbed-dashboard-routes.3",
+      "runtime": null,
+      "spec": "# fn-4-implement-all-stubbed-dashboard-routes.3 Git Health routes (/hygiene, /worktrees)\n\n## Description\nImplement the /hygiene and /worktrees routes.\n\n**Size:** M\n**Files:**\n- `src/routes/hygiene/+page.server.ts` (NEW)\n- `src/routes/hygiene/+page.svelte` (REWRITE)\n- `src/lib/server/git/worktrees.ts` (NEW)\n- `src/routes/worktrees/+page.server.ts` (NEW)\n- `src/routes/worktrees/+page.svelte` (REWRITE)\n- `src/lib/data/types.ts` (MODIFY \u2014 add HygieneIssue, WorktreeInfo types)\n\n## Approach\n\n**`/hygiene`** \u2014 Code hygiene audit:\n- Issues from RepoInfo (no extra git calls): uncommitted changes, unpushed commits.\n- Issues requiring one git command per repo:\n  - **Stale branches**: `execFile('git', ['for-each-ref', '--sort=-committerdate', '--format=%(refname:short) %(committerdate:unix)', 'refs/heads/'], { cwd: repo.path })`. **Stale = no commits in 60 days.** Exclude the current branch (it's expected to be recent). Show count of stale branches + list of oldest 10 stale branch names per repo.\n  - **Current branch behind upstream**: `execFile('git', ['rev-list', '--count', 'HEAD..@{u}'], { cwd: repo.path })`. Shows how many commits the current checked-out branch is behind its upstream. Try/catch \u2014 no upstream = info-level \"no upstream configured\".\n- All git commands via execFile with cwd + array args. safeExecFile wrapper for non-zero exit handling.\n\n**`/worktrees`** \u2014 same as v4 (no new issues).\n\n## Key context\n\n- Stale threshold: 60 days with no commits on branch, excluding current branch\n- Show count + oldest 10 stale branches per repo in UI\n- All new types in `src/lib/data/types.ts`\n\n## Acceptance\n- [ ] /hygiene stale branches defined as >60 days, excludes current branch, shows oldest 10\n- [ ] /hygiene current-branch-behind-upstream clearly labeled (not \"default branch\")\n- [ ] /hygiene uses execFile with cwd + array args\n- [ ] All new types in `src/lib/data/types.ts`\n- [ ] Both routes use `withSpan()` instrumentation\n- [ ] `pnpm check` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T12:07:03.625140Z",
+        "depends_on": [],
+        "epic": "fn-4-implement-all-stubbed-dashboard-routes",
+        "id": "fn-4-implement-all-stubbed-dashboard-routes.4",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-4-implement-all-stubbed-dashboard-routes.4.md",
+        "status": "todo",
+        "title": "Dependency & Lint routes (/deps, /lint)",
+        "updated_at": "2026-03-02T12:39:53.625068Z"
+      },
+      "id": "fn-4-implement-all-stubbed-dashboard-routes.4",
+      "runtime": null,
+      "spec": "# fn-4-implement-all-stubbed-dashboard-routes.4 Dependency & Lint routes (/deps, /lint)\n\n## Description\nImplement the /deps and /lint routes.\n\n**Size:** M\n**Files:**\n- `src/lib/server/deps/audit.ts` (NEW)\n- `src/routes/deps/+page.server.ts` (NEW)\n- `src/routes/deps/+page.svelte` (REWRITE)\n- `src/lib/server/lint/runner.ts` (NEW)\n- `src/routes/lint/+page.server.ts` (NEW)\n- `src/routes/lint/+page.svelte` (REWRITE)\n- `src/lib/data/types.ts` (MODIFY \u2014 add DepAuditResult, OutdatedPackage, LintIssue types)\n\n## Approach\n\n**Shared exec wrapper** (used by both readers):\n```typescript\n// safeExecFile \u2014 ALWAYS returns full result, NEVER throws on non-zero exit\n// Node's execFile throws on non-zero exit but includes stdout/stderr on error object\nasync function safeExecFile(cmd: string, args: string[], opts: ExecFileOptions): Promise<ExecResult> {\n  // catch error, extract e.stdout, e.stderr, e.code \u2192 return uniform { stdout, stderr, exitCode, timedOut }\n}\n```\n\n**`/deps`** \u2014 Dependency audit:\n- Use scanRepos() for repo discovery. Run in each `repo.path`.\n- `execFile('npm', ['audit', '--json'], { cwd: repoPath, timeout: 10000 })` via safeExecFile.\n- `execFile('npm', ['outdated', '--json'], { cwd: repoPath, timeout: 10000 })` via safeExecFile. Note: `npm outdated` also exits non-zero when outdated packages exist \u2014 same handling pattern.\n- Status derivation from exec result: timedOut \u2192 timeout status. stderr heuristics (ENOTFOUND, etc) \u2192 offline. Parse stdout JSON regardless of exitCode \u2192 audit data. JSON parse fails \u2192 unavailable.\n- On-demand form action. Cached by repo + lockfile mtime.\n\n**`/lint`** \u2014 Aggregated lint:\n- Use scanRepos(). Run in each `repo.path`.\n- `execFile('./node_modules/.bin/eslint', ['--format', 'json', '.'], { cwd: repoPath, timeout: 15000 })` via safeExecFile. eslint exits non-zero when issues found \u2014 use safeExecFile to capture output.\n- `execFile('./node_modules/.bin/tsc', ['--noEmit', '--pretty', 'false'], { cwd: repoPath })` via safeExecFile. tsc exits non-zero when errors found. Concatenate `stdout + '\\n' + stderr` for parsing (output channel varies).\n- On-demand \"Run Lint\" button. Cached results on page load.\n\n## Key context\n\n- npm audit, npm outdated, eslint, tsc ALL exit non-zero on \"found issues\" (success with results)\n- safeExecFile catches the error and extracts stdout/stderr from error object\n- All commands use execFile with array args\n- All new types in `src/lib/data/types.ts`\n\n## Acceptance\n- [ ] safeExecFile wrapper captures { stdout, stderr, exitCode, timedOut } on all exit codes\n- [ ] /deps uses execFile('npm', ['audit', '--json']) \u2014 array args\n- [ ] /deps uses execFile('npm', ['outdated', '--json']) \u2014 handles non-zero exit\n- [ ] /deps status derivation: timedOut \u2192 offline \u2192 parse JSON \u2192 unavailable\n- [ ] /lint uses execFile for eslint and tsc \u2014 never npx\n- [ ] /lint captures output from non-zero exit eslint/tsc via safeExecFile\n- [ ] /lint concatenates tsc stdout+stderr for parsing\n- [ ] All parsers are pure functions with fixture-based tests\n- [ ] All new types in `src/lib/data/types.ts`\n- [ ] Both routes use `withSpan()` instrumentation\n- [ ] `pnpm check` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T12:07:04.250396Z",
+        "depends_on": [],
+        "epic": "fn-4-implement-all-stubbed-dashboard-routes",
+        "id": "fn-4-implement-all-stubbed-dashboard-routes.5",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-4-implement-all-stubbed-dashboard-routes.5.md",
+        "status": "todo",
+        "title": "Repository Visualization routes (/work-graph, /repo-pulse)",
+        "updated_at": "2026-03-02T12:39:53.769918Z"
+      },
+      "id": "fn-4-implement-all-stubbed-dashboard-routes.5",
+      "runtime": null,
+      "spec": "# fn-4-implement-all-stubbed-dashboard-routes.5 Repository Visualization routes (/work-graph, /repo-pulse)\n\n## Description\nImplement the /work-graph and /repo-pulse routes.\n\n**Size:** M\n**Files:**\n- `src/routes/work-graph/+page.server.ts` (NEW)\n- `src/routes/work-graph/+page.svelte` (REWRITE)\n- `src/lib/components/charts/BranchGraph.svelte` (NEW)\n- `src/routes/repo-pulse/+page.server.ts` (NEW)\n- `src/routes/repo-pulse/+page.svelte` (REWRITE)\n- `src/lib/data/types.ts` (MODIFY \u2014 add BranchNode, BranchEdge, RepoPulseInfo types)\n\n## Approach\n\n**`/work-graph`** \u2014 Branch visualization:\n- scanRepos() for repo discovery. Per repo:\n  - Branches: `execFile('git', ['branch', '-a', '--format=%(refname:short) %(objectname:short) %(committerdate:iso8601)'], { cwd: repo.path })`. **Filter out `*/HEAD` symbolic refs** from output (e.g. `origin/HEAD` lines).\n  - Default branch: `execFile('git', ['symbolic-ref', 'refs/remotes/origin/HEAD'], { cwd: repo.path })` \u2192 fallback to checking `main` then `master`. Handle no-remote repos.\n  - Merge-base: `execFile('git', ['merge-base', branch, defaultBranch], { cwd: repo.path })` per non-default branch.\n- 100 branches total across all repos, global sort by committerdate.\n- Node IDs: `${repoName}:${branchName}`.\n- D3 force-directed graph in BranchGraph.svelte. Stop simulation on unmount.\n\n**`/repo-pulse`** \u2014 Repository activity:\n- scanRepos() ONLY. All metrics from `RepoInfo` fields:\n  - Commit frequency: count `RepoInfo.commits` (which are `RepoCommit[]`) in 7d/30d windows\n  - Contributors: unique `commit.authorName` values (real field name from `RepoCommit` type, NOT `author`)\n  - Last commit age: most recent `RepoCommit.date`\n  - Uncommitted: `RepoInfo.uncommittedFileCount`\n  - Unpushed: `RepoInfo.unpushedCommitCount`\n- **No branch count v1.** No readStatsCache().\n- Activity score: 7d commits \u00d7 3 + 30d commits. Sort most active first.\n- Sparkline: inline SVG polyline.\n\n## Key context\n\n- `RepoCommit` type (in `src/lib/server/git/types.ts`) has `authorName`/`authorEmail`, NOT `author`\n- Filter `origin/HEAD` and any `*/HEAD` symbolic refs from branch enumeration\n- `--format=` in execFile array: `['show', '--numstat', '--format=', hash]` (no shell quotes needed)\n- All new types in `src/lib/data/types.ts`\n\n## Acceptance\n- [ ] /work-graph filters out */HEAD symbolic refs from branch list\n- [ ] /work-graph uses namespaced IDs and hub-and-spoke\n- [ ] /work-graph uses execFile with array args for all git commands\n- [ ] /repo-pulse uses `authorName` field (not `author`) from RepoCommit type\n- [ ] /repo-pulse derives ALL metrics from RepoInfo (no extra git calls, no readStatsCache)\n- [ ] All new types in `src/lib/data/types.ts`\n- [ ] Both routes use `withSpan()` instrumentation\n- [ ] `pnpm check` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T12:07:05.042629Z",
+        "depends_on": [],
+        "epic": "fn-4-implement-all-stubbed-dashboard-routes",
+        "id": "fn-4-implement-all-stubbed-dashboard-routes.6",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-4-implement-all-stubbed-dashboard-routes.6.md",
+        "status": "todo",
+        "title": "Session Analysis routes (/diffs, /snapshots)",
+        "updated_at": "2026-03-02T12:39:53.910867Z"
+      },
+      "id": "fn-4-implement-all-stubbed-dashboard-routes.6",
+      "runtime": null,
+      "spec": "# fn-4-implement-all-stubbed-dashboard-routes.6 Session Analysis routes (/diffs, /snapshots)\n\n## Description\nImplement the /diffs and /snapshots routes.\n\n**Size:** M\n**Files:**\n- `src/routes/diffs/+page.server.ts` (NEW)\n- `src/routes/diffs/+page.svelte` (REWRITE)\n- `src/routes/snapshots/+page.server.ts` (NEW)\n- `src/routes/snapshots/+page.svelte` (REWRITE)\n- `src/lib/data/types.ts` (MODIFY \u2014 add SessionDiff, FileMutation, SnapshotEntry types)\n\n## Approach\n\n**`/diffs`** \u2014 Session file diff viewer:\n- `readSessionHistory(config.claudeDir)` \u2192 sort by `timestamp` desc \u2192 take 50. Note: `SessionEntry` has field `display` (NOT `displayText`).\n- Line-level JSONL parser: `parseMutationFromLine(line: string): FileMutation | null`. Production uses readline streaming.\n- Display: expand/collapse per session.\n\n**`/snapshots`** \u2014 Project state timeline:\n- scanRepos() \u2192 `RepoInfo.commits` (30-day window). Flatten chronologically. Document limitation in UI.\n- File change counts: `execFile('git', ['show', '--numstat', '--format=', hash], { cwd: repo.path })` \u2014 exact argv array, no shell quoting needed. Count output lines = files changed. Only for current page (max 20).\n- Uses `RepoCommit.authorName` (real field name, not `author`).\n- Paginate 20 per page.\n\n## Key context\n\n- `SessionEntry.display` not `displayText`\n- `RepoCommit.authorName` not `author`\n- execFile array: `['show', '--numstat', '--format=', hash]` \u2014 `--format=` with empty value, no quotes\n- All new types in `src/lib/data/types.ts`\n\n## Acceptance\n- [ ] /diffs uses correct field name `display` (not `displayText`)\n- [ ] /diffs sorts by timestamp desc before taking 50\n- [ ] /snapshots uses `['show', '--numstat', '--format=', hash]` exact argv\n- [ ] /snapshots uses `authorName` (not `author`)\n- [ ] /snapshots documents 30-day window in UI\n- [ ] All new types in `src/lib/data/types.ts`\n- [ ] Both routes use `withSpan()` instrumentation\n- [ ] `pnpm check` passes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-02T12:07:11.945100Z",
+        "depends_on": [
+          "fn-4-implement-all-stubbed-dashboard-routes.1",
+          "fn-4-implement-all-stubbed-dashboard-routes.2",
+          "fn-4-implement-all-stubbed-dashboard-routes.3",
+          "fn-4-implement-all-stubbed-dashboard-routes.4",
+          "fn-4-implement-all-stubbed-dashboard-routes.5",
+          "fn-4-implement-all-stubbed-dashboard-routes.6"
+        ],
+        "epic": "fn-4-implement-all-stubbed-dashboard-routes",
+        "id": "fn-4-implement-all-stubbed-dashboard-routes.7",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-4-implement-all-stubbed-dashboard-routes.7.md",
+        "status": "todo",
+        "title": "Cleanup: remove stub flags, update README, final tests",
+        "updated_at": "2026-03-02T12:09:25.357941Z"
+      },
+      "id": "fn-4-implement-all-stubbed-dashboard-routes.7",
+      "runtime": null,
+      "spec": "# fn-4-implement-all-stubbed-dashboard-routes.7 Cleanup: remove stub flags, update README, final tests\n\n## Description\nRemove all `stub: true` flags from navigation, update README.md with new route descriptions, and run final quality checks across the entire epic.\n\n**Size:** S\n**Files:**\n- `src/lib/stores/navigation.svelte.ts` (MODIFY)\n- `README.md` (MODIFY)\n\n## Approach\n\n- Remove `stub: true` from all 12 entries in `navSections` array in `src/lib/stores/navigation.svelte.ts`\n- Update README.md \"What You Get\" section to include descriptions for all 12 new routes\n- Update README.md architecture/routes section if it lists route directories\n- Run `pnpm check` and `pnpm test` to verify everything passes end-to-end\n- Verify no `ComingSoon` imports remain in any route page files\n\n## Key context\n\n- Navigation is at `src/lib/stores/navigation.svelte.ts` \u2014 the `stub: true` property controls whether the sidebar grays out items\n- README.md sections: \"What You Get\" (feature descriptions), \"Architecture\" (route listing)\n- Quick verification: `grep -r 'ComingSoon' src/routes/` should return 0 results after all tasks complete\n## Acceptance\n- [ ] All `stub: true` flags removed from navigation.svelte.ts\n- [ ] No `ComingSoon` component imports remain in any route under src/routes/\n- [ ] README.md updated with descriptions for all 12 new routes\n- [ ] `pnpm check` passes (0 errors)\n- [ ] `pnpm test` passes (all tests green)\n- [ ] All 12 routes load without errors in dev server\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    }
+  ]
+}
