@@ -9,29 +9,31 @@ import { createInterface } from 'node:readline';
 import type { SessionDiff, FileMutation } from '$lib/data/types';
 
 /**
- * Parse a single JSONL line from a session file, extracting any file mutation.
- * Returns null if the line does not contain a tool_use block that modifies a file.
+ * Parse a single JSONL line from a session file, extracting all file mutations.
+ * A single assistant message can contain multiple tool_use blocks, each modifying
+ * a different file. Returns an empty array if no file-modifying tools are found.
  */
-function parseMutationFromLine(line: string): FileMutation | null {
+function parseMutationsFromLine(line: string): FileMutation[] {
 	const trimmed = line.trim();
-	if (!trimmed) return null;
+	if (!trimmed) return [];
 
 	let entry: Record<string, unknown>;
 	try {
 		entry = JSON.parse(trimmed);
 	} catch {
-		return null;
+		return [];
 	}
 
-	if (entry.type !== 'assistant') return null;
+	if (entry.type !== 'assistant') return [];
 
 	const message = entry.message as Record<string, unknown> | undefined;
-	if (!message) return null;
+	if (!message) return [];
 
 	const content = message.content;
-	if (!Array.isArray(content)) return null;
+	if (!Array.isArray(content)) return [];
 
-	// Find the first tool_use block that modifies a file
+	const mutations: FileMutation[] = [];
+
 	for (const block of content) {
 		const blockObj = block as Record<string, unknown>;
 		if (blockObj.type !== 'tool_use') continue;
@@ -52,7 +54,9 @@ function parseMutationFromLine(line: string): FileMutation | null {
 		if (toolName === 'Edit' || toolName === 'write' || toolName === 'Write' || toolName === 'NotebookEdit') {
 			let diff: string | null = null;
 
-			if (toolName === 'Edit') {
+			// Generate inline diff for Edit tool, and also for write/Write
+			// when old_string/new_string are present (mirrors session-detail.ts logic)
+			if (toolName === 'Edit' || toolName === 'write' || toolName === 'Write') {
 				const oldStr = input.old_string as string | undefined;
 				const newStr = input.new_string as string | undefined;
 				if (oldStr !== undefined && newStr !== undefined) {
@@ -60,11 +64,11 @@ function parseMutationFromLine(line: string): FileMutation | null {
 				}
 			}
 
-			return { filePath, tool: toolName, diff };
+			mutations.push({ filePath, tool: toolName, diff });
 		}
 	}
 
-	return null;
+	return mutations;
 }
 
 /**
@@ -107,10 +111,8 @@ async function extractMutations(sessionFilePath: string): Promise<FileMutation[]
 		});
 
 		for await (const line of rl) {
-			const mutation = parseMutationFromLine(line);
-			if (mutation) {
-				mutations.push(mutation);
-			}
+			const lineMutations = parseMutationsFromLine(line);
+			mutations.push(...lineMutations);
 		}
 	} catch (err) {
 		warn('diffs', `Failed to parse session file: ${sessionFilePath}`, {
