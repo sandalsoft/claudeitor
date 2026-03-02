@@ -29,9 +29,8 @@ Remove all `stub: true` flags from navigation, update README.md with new route d
 - [ ] `pnpm test` passes (all tests green)
 - [ ] All 12 routes load without errors in dev server
 ## Done summary
-TBD
-
+Removed all 10 stub: true flags from navigation.svelte.ts and updated README.md with descriptions for all 12 new routes plus expanded architecture tree listing new route directories and server modules.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 454dc859c3f8965aaeaa74bcee70f8f6cafc81b2
+- Tests: pnpm check, pnpm test
 - PRs:
