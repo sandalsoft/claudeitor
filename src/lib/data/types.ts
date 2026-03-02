@@ -215,6 +215,50 @@ export interface PortInfo {
 	address: string;
 }
 
+// ─── Hygiene Issue (/hygiene) ─────────────────────────────────
+
+export type HygieneSeverity = 'info' | 'warn' | 'error';
+
+export interface StaleBranch {
+	name: string;
+	/** Unix timestamp (seconds) of last commit on this branch. */
+	lastCommitUnix: number;
+}
+
+export interface HygieneIssue {
+	/** Repository name. */
+	repo: string;
+	/** Repository path. */
+	repoPath: string;
+	/** Human-readable issue label. */
+	label: string;
+	/** Issue severity. */
+	severity: HygieneSeverity;
+	/** Short detail string. */
+	detail: string;
+	/** Stale branches list (only for stale-branches issues). */
+	staleBranches?: StaleBranch[];
+	/** Total stale branch count (may exceed staleBranches.length which is capped at 10). */
+	staleBranchCount?: number;
+}
+
+// ─── Worktree Info (/worktrees) ──────────────────────────────
+
+export interface WorktreeInfo {
+	/** Absolute path to the worktree. */
+	path: string;
+	/** HEAD hash (or empty for bare). */
+	head: string;
+	/** Branch name (or "detached" / "bare"). */
+	branch: string;
+	/** Whether this is the main worktree. */
+	isMain: boolean;
+	/** Repository name this worktree belongs to. */
+	repo: string;
+	/** Repository path. */
+	repoPath: string;
+}
+
 // ─── Enriched Active Session (flight deck) ───────────────────
 
 export interface EnrichedActiveSession {
