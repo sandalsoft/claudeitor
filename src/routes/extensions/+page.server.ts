@@ -71,17 +71,36 @@ export const load: PageServerLoad = async () => {
 				readMcpServers(config.claudeDir)
 			]);
 
+			// Normalize settings fields defensively (settings.json may be partial)
+			const enabledPlugins =
+				settings.enabledPlugins &&
+				typeof settings.enabledPlugins === 'object' &&
+				!Array.isArray(settings.enabledPlugins)
+					? settings.enabledPlugins
+					: {};
+			const hooks =
+				settings.hooks &&
+				typeof settings.hooks === 'object' &&
+				!Array.isArray(settings.hooks)
+					? settings.hooks
+					: {};
+
 			// Build plugin list by merging installed_plugins.json with enabledPlugins
 			const plugins: PluginSummary[] = [];
 
-			if (installedPlugins) {
+			if (
+				installedPlugins &&
+				installedPlugins.plugins &&
+				typeof installedPlugins.plugins === 'object'
+			) {
 				for (const [id, entries] of Object.entries(installedPlugins.plugins)) {
+					if (!Array.isArray(entries)) continue;
 					// Use the most recent installation entry
 					const latest = entries[entries.length - 1];
 					if (!latest) continue;
 
 					// Check enabledPlugins: explicit true/false, or default to true if installed
-					const enabled = settings.enabledPlugins[id] !== false;
+					const enabled = enabledPlugins[id] !== false;
 
 					plugins.push({
 						id,
@@ -94,7 +113,7 @@ export const load: PageServerLoad = async () => {
 			}
 
 			// Also include any plugins in enabledPlugins that aren't in installed_plugins.json
-			for (const [id, enabled] of Object.entries(settings.enabledPlugins)) {
+			for (const [id, enabled] of Object.entries(enabledPlugins)) {
 				if (!plugins.some((p) => p.id === id)) {
 					plugins.push({
 						id,
@@ -109,8 +128,8 @@ export const load: PageServerLoad = async () => {
 			plugins.sort((a, b) => a.id.localeCompare(b.id));
 
 			// Aggregate hook count from Record<string, HookMatcher[]>
-			const hookCount = Object.values(settings.hooks).reduce(
-				(sum, matchers) => sum + matchers.length,
+			const hookCount = Object.values(hooks).reduce(
+				(sum, matchers) => sum + (Array.isArray(matchers) ? matchers.length : 0),
 				0
 			);
 

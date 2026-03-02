@@ -23,14 +23,20 @@ async function exists(path: string): Promise<boolean> {
 	}
 }
 
-/** Resolve `which claude` with a timeout. */
+/** Resolve `which claude` with a timeout. Guards against double-resolve. */
 function whichClaude(): Promise<boolean> {
 	return new Promise((resolve) => {
+		let resolved = false;
+		const settle = (value: boolean) => {
+			if (!resolved) {
+				resolved = true;
+				resolve(value);
+			}
+		};
 		const child = execFile('which', ['claude'], { timeout: 2000 }, (err) => {
-			resolve(!err);
+			settle(!err);
 		});
-		// Safety: clear on timeout
-		child.on('error', () => resolve(false));
+		child.once('error', () => settle(false));
 	});
 }
 
@@ -147,8 +153,12 @@ export const load: PageServerLoad = async () => {
 
 			// 8. Hooks
 			const settings = await readSettings(config.claudeDir);
-			const hookCount = Object.values(settings.hooks).reduce(
-				(sum, matchers) => sum + matchers.length,
+			const hooks =
+				settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks)
+					? settings.hooks
+					: {};
+			const hookCount = Object.values(hooks).reduce(
+				(sum, matchers) => sum + (Array.isArray(matchers) ? matchers.length : 0),
 				0
 			);
 			checks.push(
