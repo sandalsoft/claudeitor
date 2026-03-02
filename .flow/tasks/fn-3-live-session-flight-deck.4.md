@@ -53,9 +53,8 @@ Build the D3.js token burn rate chart and the tool call / file activity feed com
 - [ ] All components use Svelte 5 runes and Tailwind v4 semantic tokens
 - [ ] `pnpm check` passes
 ## Done summary
-TBD
-
+Built three live flight deck visualization components: BurnRateChart (D3 line chart with 30-point rolling window and smooth transitions), ToolCallFeed (scrollable list of 20 recent tool calls with correlated status icons), and FileActivityFeed (scrollable list of 15 recent file mutations with operation badges and recency indicators).
 ## Evidence
-- Commits:
-- Tests:
+- Commits: c546e5798fb47bf8b707116fe4caef46907a6f72
+- Tests: pnpm check
 - PRs:
