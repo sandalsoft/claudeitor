@@ -51,9 +51,8 @@ Implement the /work-graph and /repo-pulse routes.
 - [ ] Both routes use `withSpan()` instrumentation
 - [ ] `pnpm check` passes
 ## Done summary
-TBD
-
+Implemented /work-graph and /repo-pulse routes replacing ComingSoon stubs. /work-graph enumerates branches across repos using execFile, filters */HEAD symbolic refs, builds hub-and-spoke graph with namespaced IDs, and renders a D3 force-directed visualization. /repo-pulse derives all metrics (commit frequency, contributors, sparkline, activity score) from RepoInfo fields only using authorName, with no extra git calls.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 63871af22a23a9ec1bddad4cb9f3924c1d68148d
+- Tests: pnpm check
 - PRs:
