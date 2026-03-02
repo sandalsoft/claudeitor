@@ -393,6 +393,51 @@ export interface RepoPulseInfo {
 	sparkline: number[];
 }
 
+// ─── Session Diffs (/diffs) ──────────────────────────────────
+
+export interface FileMutation {
+	/** Absolute file path that was modified. */
+	filePath: string;
+	/** Tool that performed the mutation (Edit, Write, etc.). */
+	tool: string;
+	/** Simple diff content (unified-style), or null for full-file writes. */
+	diff: string | null;
+}
+
+export interface SessionDiff {
+	/** Session display text. */
+	display: string;
+	/** Session timestamp (ms since epoch). */
+	timestamp: number;
+	/** Project path. */
+	project: string;
+	/** Session ID (if available). */
+	sessionId?: string;
+	/** File mutations extracted from the session. */
+	mutations: FileMutation[];
+}
+
+// ─── Snapshots (/snapshots) ──────────────────────────────────
+
+export interface SnapshotEntry {
+	/** Commit hash (full). */
+	hash: string;
+	/** Commit subject line. */
+	subject: string;
+	/** Author name. */
+	authorName: string;
+	/** Author email. */
+	authorEmail: string;
+	/** ISO 8601 date string. */
+	date: string;
+	/** Repository name. */
+	repo: string;
+	/** Repository path. */
+	repoPath: string;
+	/** Number of files changed in this commit (populated on current page only). */
+	filesChanged: number;
+}
+
 // ─── Enriched Active Session (flight deck) ───────────────────
 
 export interface EnrichedActiveSession {
