@@ -1,0 +1,43 @@
+{
+	"name": "claudeitor",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"start": "HOST=127.0.0.1 PORT=3000 node build",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-node": "^5.0.0",
+		"@sveltejs/kit": "^2.50.2",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@tailwindcss/vite": "^4.0.0",
+		"@types/d3": "^7.4.0",
+		"svelte": "^5.51.0",
+		"svelte-check": "^4.4.2",
+		"tailwindcss": "^4.0.0",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.1",
+		"vitest": "^4.0.18"
+	},
+	"dependencies": {
+		"@anthropic-ai/sdk": "^0.39.0",
+		"@opentelemetry/api": "1.9.0",
+		"@opentelemetry/context-async-hooks": "2.5.1",
+		"@opentelemetry/core": "2.5.1",
+		"@opentelemetry/resources": "2.5.1",
+		"@opentelemetry/sdk-trace-base": "2.5.1",
+		"@opentelemetry/sdk-trace-node": "2.5.1",
+		"bits-ui": "^1.0.0",
+		"chokidar": "^4.0.0",
+		"d3": "^7.9.0",
+		"sveltekit-sse": "^0.13.0"
+	}
+}

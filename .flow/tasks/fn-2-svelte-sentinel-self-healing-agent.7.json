@@ -1,0 +1,18 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-01T16:59:25.072208Z",
+  "depends_on": [
+    "fn-2-svelte-sentinel-self-healing-agent.2",
+    "fn-2-svelte-sentinel-self-healing-agent.3",
+    "fn-2-svelte-sentinel-self-healing-agent.6"
+  ],
+  "epic": "fn-2-svelte-sentinel-self-healing-agent",
+  "id": "fn-2-svelte-sentinel-self-healing-agent.7",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-2-svelte-sentinel-self-healing-agent.7.md",
+  "status": "todo",
+  "title": "Integration: config, .gitignore, SKILL.md templates, end-to-end test",
+  "updated_at": "2026-03-01T17:26:50.225070Z"
+}

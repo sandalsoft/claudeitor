@@ -1,0 +1,20 @@
+{
+  "branch_name": "fn-3-live-session-flight-deck",
+  "completion_review_status": "unknown",
+  "completion_reviewed_at": null,
+  "created_at": "2026-03-02T02:34:10.003273Z",
+  "default_impl": null,
+  "default_review": null,
+  "default_sync": null,
+  "depends_on_epics": [
+    "fn-1-claudeitor-coding-activity-dashboard"
+  ],
+  "id": "fn-3-live-session-flight-deck",
+  "next_task": 1,
+  "plan_review_status": "unknown",
+  "plan_reviewed_at": null,
+  "spec_path": ".flow/specs/fn-3-live-session-flight-deck.md",
+  "status": "open",
+  "title": "Live Session Flight Deck",
+  "updated_at": "2026-03-02T02:44:33.885340Z"
+}

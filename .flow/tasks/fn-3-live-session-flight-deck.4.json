@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-02T02:35:40.528878Z",
+  "depends_on": [],
+  "epic": "fn-3-live-session-flight-deck",
+  "id": "fn-3-live-session-flight-deck.4",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-3-live-session-flight-deck.4.md",
+  "status": "todo",
+  "title": "D3 burn rate chart and activity feed components",
+  "updated_at": "2026-03-02T02:44:39.139987Z"
+}

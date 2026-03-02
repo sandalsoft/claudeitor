@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-01T16:59:24.668022Z",
+  "depends_on": [],
+  "epic": "fn-2-svelte-sentinel-self-healing-agent",
+  "id": "fn-2-svelte-sentinel-self-healing-agent.4",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-2-svelte-sentinel-self-healing-agent.4.md",
+  "status": "todo",
+  "title": "Scaffold svelte-sentinel: Bun CLI, JSONL tailer, issue detection",
+  "updated_at": "2026-03-01T17:26:46.157732Z"
+}

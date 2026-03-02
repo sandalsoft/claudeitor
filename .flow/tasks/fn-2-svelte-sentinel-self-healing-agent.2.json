@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-01T16:59:24.367189Z",
+  "depends_on": [
+    "fn-2-svelte-sentinel-self-healing-agent.1"
+  ],
+  "epic": "fn-2-svelte-sentinel-self-healing-agent",
+  "id": "fn-2-svelte-sentinel-self-healing-agent.2",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-2-svelte-sentinel-self-healing-agent.2.md",
+  "status": "todo",
+  "title": "Instrument load functions and data readers with OTel spans",
+  "updated_at": "2026-03-01T17:26:43.738558Z"
+}

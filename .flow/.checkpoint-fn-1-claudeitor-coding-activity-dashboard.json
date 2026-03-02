@@ -1,0 +1,347 @@
+{
+  "created_at": "2026-03-01T03:38:09.915332Z",
+  "epic": {
+    "data": {
+      "branch_name": "fn-1-claudeitor-coding-activity-dashboard",
+      "created_at": "2026-03-01T03:14:14.144232Z",
+      "depends_on_epics": [],
+      "id": "fn-1-claudeitor-coding-activity-dashboard",
+      "next_task": 1,
+      "plan_review_status": "unknown",
+      "plan_reviewed_at": null,
+      "spec_path": ".flow/specs/fn-1-claudeitor-coding-activity-dashboard.md",
+      "status": "open",
+      "title": "Claudeitor: Coding Activity Dashboard",
+      "updated_at": "2026-03-01T03:32:51.573298Z"
+    },
+    "spec": "# Claudeitor: Coding Activity Dashboard\n\n## Overview\n\nA localhost-only SvelteKit + Svelte 5 web dashboard that reads from ~/.claude/ and git repos to present a rich, interactive overview of coding activity, session history, costs, repo health, and Claude Code configuration. Single-user, no auth, no deployment.\n\n## Scope\n\n### In Scope (V1)\n- **11 full pages**: Readout, Live, Sessions (list + detail/replay), Costs, Repos, Timeline, Skills, Agents, Memory, Hooks, Settings\n- **Stub pages**: Work Graph, Repo Pulse, Diffs, Snapshots, Hygiene, Deps, Worktrees, Env, Lint, Setup, Ports, Extensions\n- **Real-time SSE** on Readout page via sveltekit-sse\n- **D3.js interactive charts** (Activity 30d, When You Work, Cost by Model)\n- **Session replay** with scrubable timeline\n- **AI summaries** via Anthropic SDK (configurable model, cached locally)\n- **Cmd+K command palette** via Bits UI Command component\n- **Snooze-able alerts** for repo hygiene issues\n- **System light/dark theme** via Tailwind v4 CSS-first config\n\n### Out of Scope\n- Pi-agent extensions (deferred epic)\n- Mobile-first design (responsive but desktop-primary)\n- Multi-user / auth / deployment\n- Database (pure filesystem reads)\n\n## Architecture\n\n```mermaid\ngraph TB\n    subgraph Browser\n        SvelteKit[SvelteKit App]\n        D3[D3.js Charts]\n        SSEClient[SSE Client]\n    end\n    \n    subgraph Server[\"SvelteKit Server (Node Adapter)\"]\n        Routes[Route Handlers]\n        SSEEndpoint[SSE Endpoint]\n        FileWatcher[Chokidar File Watcher]\n    end\n    \n    subgraph Data[\"Data Sources\"]\n        StatsCache[\"stats-cache.json\"]\n        CostCache[\"readout-cost-cache.json\"]\n        Pricing[\"readout-pricing.json\"]\n        History[\"history.jsonl\"]\n        Settings[\"settings.json\"]\n        Skills[\"skills/\"]\n        Agents[\"agents/\"]\n        Projects[\"projects/\"]\n        GitRepos[\"Git Repos\"]\n    end\n    \n    SvelteKit --> Routes\n    SSEClient --> SSEEndpoint\n    FileWatcher --> SSEEndpoint\n    Routes --> StatsCache\n    Routes --> CostCache\n    Routes --> Pricing\n    Routes --> History\n    Routes --> Settings\n    Routes --> Skills\n    Routes --> Agents\n    Routes --> Projects\n    Routes --> GitRepos\n    FileWatcher --> StatsCache\n    FileWatcher --> CostCache\n    FileWatcher --> History\n```\n\n## Data Strategy\n\n1. **Cache-first**: Read stats-cache.json, readout-cost-cache.json, readout-pricing.json\n2. **JSONL fallback**: Parse history.jsonl when caches unavailable\n3. **Model ID mapping**: Map full IDs (claude-opus-4-5-20251101) to pricing short names (opus-4-5) using regex pattern extraction\n4. **Incremental repo scanning**: Use git rev-parse HEAD to detect changes, cache scan results\n5. **File watching**: Chokidar on ~/.claude/ with awaitWriteFinish for atomic reads\n6. **SSE push**: File change events \u2192 SSE \u2192 client-side store updates on Readout page\n\n## Key Technical Decisions\n\n1. sveltekit-sse library for SSE (not raw EventSource)\n2. Bits UI Command for Cmd+K palette (cmdk-sv is deprecated)\n3. D3.js for charts (maximum flexibility, SVG-based)\n4. Chokidar for file watching (awaitWriteFinish prevents partial reads)\n5. Node adapter (persistent server required for SSE + file watching)\n6. Dashboard state in localStorage (snoozed alerts, chart prefs, theme override)\n7. AI summary cache in ~/.claude/projects/<project>/claudeitor-cache/\n8. Config file: claudeitor.config.json in project root\n\n## Risks & Mitigations\n\n| Risk | Mitigation |\n|------|-----------|\n| Model ID mapping breaks on new models | Regex-based extraction with fallback to raw ID |\n| Concurrent cache writes corrupt reads | Chokidar awaitWriteFinish + JSON parse try/catch |\n| Large session files crash replay | TanStack Virtual for message virtualization (or fallback) |\n| ~/.claude/ format changes | Version detection, graceful degradation per-feature |\n| Active session detection fragile | Combine process detection + file timestamp heuristics |\n\n## Quick Commands\n\n```bash\n# Install dependencies\npnpm install\n\n# Dev server\npnpm dev\n\n# Type check\npnpm check\n\n# Run tests\npnpm test\n\n# Build\npnpm build\n```\n\n## Acceptance\n\n- [ ] SvelteKit + Svelte 5 project with Tailwind v4, D3.js, TypeScript strict\n- [ ] Readout page with responsive grid matching reference screenshot\n- [ ] Top stat cards with real data and trend indicators\n- [ ] Activity (30d), When You Work, Cost by Model charts \u2014 interactive D3.js\n- [ ] Recent Sessions with real data from history.jsonl\n- [ ] Snooze-able alerts for hygiene issues\n- [ ] SSE real-time updates on Readout page\n- [ ] All 11 full pages with real data\n- [ ] All stub pages with Coming Soon placeholder\n- [ ] Sidebar navigation with all sections\n- [ ] Cmd+K command palette with fuzzy search\n- [ ] Session detail with metadata + AI summary (cached)\n- [ ] Session replay with scrubable timeline\n- [ ] Settings page (API key, repo dirs, theme, model, cost thresholds)\n- [ ] System light/dark theme\n- [ ] Config file (claudeitor.config.json)\n- [ ] Vitest unit tests for data layer\n- [ ] Empty states with guidance\n- [ ] Sub-2-second initial page load\n\n## References\n\n- Spec: .flow/specs/fn-1-claudeitor-coding-activity-dashboard.md\n- Reference SvelteKit project: ~/Development/code/Hasura/PromptQL-Code/ThreadErrorAnalyzer/\n- User skills: svelte-runes, sveltekit-data-flow, tailwind-v4-shadcn, d3js, clean-web-design\n- Data sources: ~/.claude/stats-cache.json, readout-cost-cache.json, readout-pricing.json, history.jsonl\n"
+  },
+  "epic_id": "fn-1-claudeitor-coding-activity-dashboard",
+  "schema_version": 2,
+  "tasks": [
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:11.857315Z",
+        "depends_on": [],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.1",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.1.md",
+        "status": "todo",
+        "title": "Scaffold SvelteKit project with Tailwind v4, D3.js, and TypeScript strict",
+        "updated_at": "2026-03-01T03:33:34.165392Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.1",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.1 Scaffold SvelteKit project with Tailwind v4, D3.js, and TypeScript strict\n\n## Description\nScaffold a new SvelteKit project with Svelte 5, Tailwind CSS v4 (CSS-first config with @theme directive), D3.js, and TypeScript in strict mode. Configure the Node adapter for persistent server support. Set up the project structure with the clean separation defined in the epic spec.\n\n**Size:** M\n**Files:** package.json, svelte.config.js, tsconfig.json, vite.config.ts, src/app.css, src/app.html, src/lib/, claudeitor.config.json, tailwind.config (or CSS-first @theme)\n\n## Approach\n- Use `pnpm create svelte@latest` with TypeScript strict\n- Install: tailwindcss@4, d3, @sveltejs/adapter-node, sveltekit-sse, bits-ui, chokidar, @anthropic-ai/sdk\n- Configure Tailwind v4 with CSS-first config using @theme directive and HSL custom properties\n- Set up system light/dark preference detection via prefers-color-scheme\n- Create directory structure: src/lib/data/, src/lib/components/, src/lib/stores/, src/lib/utils/\n- Create claudeitor.config.json with default settings\n- Reference clean-web-design and tailwind-v4-shadcn skills for theme setup\n\n## Key context\n- Tailwind v4 uses CSS-first config with @theme directive, NOT tailwind.config.js\n- Node adapter required for SSE and file watching (not auto/static)\n- Svelte 5 uses runes ($state, $derived, $effect), NOT legacy stores for component state\n## Acceptance\n- [ ] SvelteKit project initializes and dev server starts on port 5173\n- [ ] TypeScript in strict mode (strict: true in tsconfig)\n- [ ] Tailwind v4 with @theme directive and HSL custom properties\n- [ ] System prefers-color-scheme detection works (light/dark)\n- [ ] Node adapter configured in svelte.config.js\n- [ ] All dependencies installed: d3, sveltekit-sse, bits-ui, chokidar, @anthropic-ai/sdk\n- [ ] Directory structure matches epic spec\n- [ ] claudeitor.config.json exists with default repoDirs, claudeDir, llm, alerts, refreshInterval\n- [ ] pnpm dev, pnpm check, pnpm build all pass\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:13.112413Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.2",
+          "fn-1-claudeitor-coding-activity-dashboard.6"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.10",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.10.md",
+        "status": "todo",
+        "title": "Build Costs page with model breakdown and trend charts",
+        "updated_at": "2026-03-01T03:35:59.751861Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.10",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.10 Build Costs page with model breakdown and trend charts\n\n## Description\nBuild the Costs page with detailed cost breakdown by model, by day, and by repo. Includes D3.js trend charts showing cost over time and per-model distribution. Uses the cost calculator from task 3 and chart components from task 6.\n\n**Size:** M\n**Files:** src/routes/costs/+page.svelte, src/routes/costs/+page.server.ts, src/lib/components/charts/CostTrendChart.svelte, src/lib/components/charts/CostBreakdownChart.svelte\n\n## Approach\n- Load cost data: readCostCache() + readPricing() + calculateCosts()\n- Views: daily cost trend (line/area chart), per-model breakdown (pie/donut or horizontal bars), cost table with sortable columns\n- Date range selector: last 7/14/30/90 days\n- CostTrendChart: D3 line/area chart showing daily cost over selected range\n- CostBreakdownChart: D3 donut chart or horizontal bar chart showing per-model cost\n- Summary stats at top: total cost (all time), cost today, cost this week, cost this month\n- Table: date | model | input tokens | output tokens | cache tokens | cost\n- Sort table by any column\n- Reuse D3 patterns from task 6 (scales, axes, tooltips)\n\n## Key context\n- Cost data comes from readout-cost-cache.json via cost calculator\n- Model ID mapping required (full ID -> short name -> display name)\n- All costs in USD\n- Charts should be consistent with Readout page charts (same tooltip style, colors)\n## Acceptance\n- [ ] Costs page loads and displays cost data from cache files\n- [ ] Daily cost trend chart renders with D3.js\n- [ ] Per-model cost breakdown chart renders\n- [ ] Date range selector filters data (7/14/30/90 days)\n- [ ] Summary stats: total cost, cost today, cost this week, cost this month\n- [ ] Cost table shows per-day per-model token usage and cost\n- [ ] Table columns are sortable\n- [ ] Model names displayed as human-readable names (not raw IDs)\n- [ ] Empty state when no cost data available\n- [ ] Charts consistent with Readout page chart styling\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:13.251566Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.2",
+          "fn-1-claudeitor-coding-activity-dashboard.3",
+          "fn-1-claudeitor-coding-activity-dashboard.5"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.11",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.11.md",
+        "status": "todo",
+        "title": "Build Live, Repos, and Timeline pages",
+        "updated_at": "2026-03-01T03:36:13.889995Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.11",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.11 Build Live, Repos, and Timeline pages\n\n## Description\nBuild three related pages: Live (active sessions + real-time activity feed), Repos (repository list with health status and git stats), and Timeline (chronological activity view across all repos). These pages share data from git scanning and session data.\n\n**Size:** M\n**Files:** src/routes/live/+page.svelte, src/routes/live/+page.server.ts, src/routes/repos/+page.svelte, src/routes/repos/+page.server.ts, src/routes/timeline/+page.svelte, src/routes/timeline/+page.server.ts, src/lib/data/claude/active-sessions.ts\n\n## Approach\n- **Live page**: \n  - Active sessions panel: detect running Claude processes (ps aux | grep claude) + match to session files by PID/timestamp\n  - Real-time activity feed: stream of recent events (commits, session starts/ends, file changes) via SSE\n  - If no active sessions: show \"No active Claude sessions\" with guidance\n- **Repos page**:\n  - List all discovered repos with: name, branch, last commit, uncommitted files, unpushed commits, skill count\n  - Health indicators: green (clean), yellow (uncommitted), red (unpushed + uncommitted)\n  - Click repo to expand details or navigate to repo detail\n  - Sort by name, last activity, health status\n- **Timeline page**:\n  - Chronological list of events across all repos\n  - Event types: commits, Claude sessions, file changes\n  - Filterable by repo, event type, date range\n  - Combine git log data + session history into unified timeline\n\n## Key context\n- Active session detection is heuristic: combine process detection + recent session file timestamps\n- Repo list from scanRepos() (task 3) \u2014 incremental scanning\n- Timeline merges git commits + session starts into one sorted list\n- Timeline may have many entries \u2014 use virtual scrolling or pagination\n## Acceptance\n- [ ] Live page shows currently active Claude sessions (if any)\n- [ ] Live page shows real-time activity feed\n- [ ] Live page shows empty state when no active sessions\n- [ ] Repos page lists all discovered repositories\n- [ ] Repos show: name, branch, last commit, uncommitted/unpushed counts\n- [ ] Repos have health indicators (green/yellow/red)\n- [ ] Repos list is sortable by name, activity, health\n- [ ] Timeline shows chronological events across all repos\n- [ ] Timeline events: commits, sessions, filterable by repo and type\n- [ ] Timeline supports date range filtering\n- [ ] All three pages handle empty data gracefully\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:13.398662Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.2",
+          "fn-1-claudeitor-coding-activity-dashboard.4"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.12",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.12.md",
+        "status": "todo",
+        "title": "Build Config pages: Skills, Agents, Memory, and Hooks",
+        "updated_at": "2026-03-01T03:36:26.861602Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.12",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.12 Build Config pages: Skills, Agents, Memory, and Hooks\n\n## Description\nBuild four Config section pages: Skills (inventory with descriptions), Agents (inventory), Memory (CLAUDE.md file viewer, read-only), and Hooks (hook configuration viewer). All are read-only viewers of Claude Code configuration data.\n\n**Size:** M\n**Files:** src/routes/skills/+page.svelte, src/routes/skills/+page.server.ts, src/routes/agents/+page.svelte, src/routes/agents/+page.server.ts, src/routes/memory/+page.svelte, src/routes/memory/+page.server.ts, src/routes/hooks/+page.svelte, src/routes/hooks/+page.server.ts\n\n## Approach\n- **Skills page**: \n  - List all skills from ~/.claude/skills/ directories\n  - Show: name, description (from SKILL.md frontmatter), file count, whether user-invocable\n  - Click to expand and show SKILL.md content (rendered markdown)\n- **Agents page**:\n  - List agents from ~/.claude/agents/ markdown files\n  - Show: name, description (from frontmatter), model, tools available\n  - Click to expand and show full agent definition\n- **Memory page**:\n  - Read-only viewer of CLAUDE.md files\n  - Show: global (~/.claude/CLAUDE.md), project-level (./CLAUDE.md), any child CLAUDE.md files\n  - Render markdown content with syntax highlighting for code blocks\n  - Show line count per file\n- **Hooks page**:\n  - Read hooks configuration from settings.json\n  - Display hook triggers, commands, and whether they are active\n  - Organized by hook type (pre-commit, post-edit, etc.)\n\n## Key context\n- Skills and agents use markdown frontmatter (--- delimited YAML)\n- Parse frontmatter for metadata, render body as markdown\n- Memory is READ-ONLY \u2014 no editing from the dashboard\n- Hooks are defined in ~/.claude/settings.json under \"hooks\" key\n- Some skills are symlinked \u2014 resolve symlinks for display\n## Acceptance\n- [ ] Skills page lists all skills with name and description\n- [ ] Skills expandable to show full SKILL.md content\n- [ ] Agents page lists all agents with name, description, model\n- [ ] Agents expandable to show full agent definition\n- [ ] Memory page shows CLAUDE.md files (global + project-level)\n- [ ] Memory renders markdown with syntax-highlighted code blocks\n- [ ] Memory shows line counts per file\n- [ ] Memory is read-only (no edit controls)\n- [ ] Hooks page displays hook configuration from settings.json\n- [ ] Hooks organized by trigger type\n- [ ] All pages handle empty data (no skills, no agents, no memory, no hooks)\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:13.537991Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.4",
+          "fn-1-claudeitor-coding-activity-dashboard.2"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.13",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.13.md",
+        "status": "todo",
+        "title": "Build Settings page and Cmd+K command palette",
+        "updated_at": "2026-03-01T03:36:49.251609Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.13",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.13 Build Settings page and Cmd+K command palette\n\n## Description\nBuild the Settings page (API key, repo dirs, theme, model selection, cost thresholds, chart preferences, notification settings) and the Cmd+K command palette for quick navigation. Settings persist to claudeitor.config.json. Command palette provides fuzzy search across all dashboard entities.\n\n**Size:** M\n**Files:** src/routes/settings/+page.svelte, src/routes/settings/+page.server.ts, src/routes/api/settings/+server.ts, src/lib/components/layout/CommandPalette.svelte, src/lib/utils/fuzzy-search.ts\n\n## Approach\n- **Settings page**:\n  - Sections: General (repo dirs, Claude dir), API (API key, model selection), Alerts (cost threshold, snooze defaults), Display (theme override, chart preferences), About\n  - API key: password input, validated against Anthropic API on save\n  - Repo dirs: editable list with add/remove, tilde expansion preview\n  - Model selection: dropdown of available models from pricing data\n  - Cost threshold: numeric input for alert trigger\n  - Save settings: POST to /api/settings which writes claudeitor.config.json\n- **Command palette**:\n  - Trigger: Cmd+K (Meta+K) keyboard shortcut\n  - Fuzzy search across: pages (routes), repos, sessions, skills, agents\n  - Use Bits UI Command component (replaces deprecated cmdk-sv)\n  - Items: icon + label + category, keyboard navigable\n  - Select item \u2192 navigate to that route\n\n## Key context\n- Bits UI Command component: install bits-ui, use Command.Root, Command.Input, Command.List, Command.Item\n- API key stored in config file \u2014 DO NOT expose via client-side code (server-only)\n- Settings POST endpoint validates and writes config atomically (write temp file, rename)\n- Command palette should register Cmd+K listener in +layout.svelte\n- Fuzzy search: simple substring/score match, no external library needed\n## Acceptance\n- [ ] Settings page renders all configuration sections\n- [ ] API key input with save and validation\n- [ ] Repo dirs editable list (add, remove, reorder)\n- [ ] Model selection dropdown from available models\n- [ ] Cost threshold configurable\n- [ ] Theme override option (system/light/dark)\n- [ ] Save persists to claudeitor.config.json via API endpoint\n- [ ] Config write is atomic (temp file + rename)\n- [ ] Cmd+K opens command palette from any page\n- [ ] Command palette fuzzy searches pages, repos, sessions, skills\n- [ ] Command palette keyboard navigable (arrow keys, enter to select)\n- [ ] Selected item navigates to correct route\n- [ ] API key never exposed in client-side JavaScript\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:13.686834Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.4"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.14",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.14.md",
+        "status": "todo",
+        "title": "Build stub pages and empty state components",
+        "updated_at": "2026-03-01T03:37:01.751803Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.14",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.14 Build stub pages and empty state components\n\n## Description\nBuild all stub pages (Coming Soon placeholders) and the shared empty state component used across the dashboard. Stub pages cover deferred features that have sidebar navigation entries but no implementation yet. Empty states provide guidance when data is missing.\n\n**Size:** S\n**Files:** src/routes/extensions/+page.svelte, src/lib/components/ui/ComingSoon.svelte, src/lib/components/ui/EmptyState.svelte, plus stub route files for: work-graph, repo-pulse, diffs, snapshots, hygiene, deps, worktrees, env, lint, setup, ports\n\n## Approach\n- ComingSoon component: icon, title, description (\"This feature is coming soon\"), optional link to related page\n- Each stub page: minimal route file that renders ComingSoon with feature-specific title/description\n- Stub pages: Work Graph, Repo Pulse, Diffs, Snapshots, Hygiene, Deps, Worktrees, Env, Lint, Setup, Ports, Extensions (pi-agent)\n- EmptyState component: icon, title, description, optional CTA button\n  - Used when data sources are empty (no sessions, no repos, no skills, etc.)\n  - Each page provides contextual empty state text\n- Follow clean-web-design skill for visual treatment\n\n## Key context\n- Stub pages should feel intentional, not broken \u2014 show what the feature WILL do\n- Extensions page should mention pi-agent framework briefly\n- Empty states should guide users: \"Add repo directories in Settings\" etc.\n## Acceptance\n- [ ] ComingSoon component renders with title and description\n- [ ] All 12 stub pages render ComingSoon with feature-specific text\n- [ ] All stub pages are navigable from sidebar\n- [ ] EmptyState component renders with icon, title, description, CTA\n- [ ] EmptyState used in all data pages when data is missing\n- [ ] Empty states provide actionable guidance (e.g., \"Configure repo dirs in Settings\")\n- [ ] Extensions page mentions pi-agent\n- [ ] Stub pages look intentional and polished, not broken\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:13.820911Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.2",
+          "fn-1-claudeitor-coding-activity-dashboard.3"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.15",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.15.md",
+        "status": "todo",
+        "title": "Write Vitest unit tests for data layer",
+        "updated_at": "2026-03-01T03:37:15.370778Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.15",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.15 Write Vitest unit tests for data layer\n\n## Description\nWrite Vitest unit tests for the entire data layer: Claude data readers, git scanner, config reader, cost calculator, model ID mapping, and utility functions. Tests should cover happy paths, error handling (missing files, malformed data), and edge cases.\n\n**Size:** M\n**Files:** src/lib/data/claude/__tests__/stats.test.ts, src/lib/data/claude/__tests__/costs.test.ts, src/lib/data/claude/__tests__/sessions.test.ts, src/lib/data/claude/__tests__/model-mapping.test.ts, src/lib/data/claude/__tests__/cost-calculator.test.ts, src/lib/data/git/__tests__/scanner.test.ts, src/lib/data/__tests__/config.test.ts, src/lib/utils/__tests__/chart-helpers.test.ts\n\n## Approach\n- Use Vitest with vi.mock for filesystem operations (do NOT read real ~/.claude/ in tests)\n- Mock fs.readFile to return test fixtures\n- Test fixtures: sample stats-cache.json, readout-cost-cache.json, readout-pricing.json, history.jsonl\n- Test categories per module:\n  - Stats reader: valid data, missing file, malformed JSON, missing fields\n  - Cost reader: valid data, missing file, empty days\n  - Session reader: valid JSONL, empty file, malformed lines\n  - Model mapping: known models, unknown models, edge case IDs\n  - Cost calculator: correct math, missing models in pricing, empty data\n  - Git scanner: mock child_process.exec for git commands\n  - Config reader: valid config, missing file, tilde expansion\n  - Chart helpers: formatCurrency, formatNumber, date formatting\n\n## Key context\n- Vitest config should be in vitest.config.ts or vite.config.ts\n- Use vi.mock('fs/promises') for filesystem mocking\n- Test fixtures should use realistic data matching actual ~/.claude/ schemas\n- Focus on data correctness \u2014 UI components tested separately\n## Acceptance\n- [ ] Vitest configured and `pnpm test` runs all tests\n- [ ] Stats reader tests: valid data, missing file, malformed JSON\n- [ ] Cost reader tests: valid data, missing file, empty days\n- [ ] Session reader tests: valid JSONL, empty file, malformed lines\n- [ ] Model mapping tests: known models, unknown models, edge cases\n- [ ] Cost calculator tests: correct math with known pricing, missing models\n- [ ] Git scanner tests: mock git commands, handle errors\n- [ ] Config reader tests: valid config, missing file, tilde expansion\n- [ ] Chart helper tests: formatting functions\n- [ ] All tests use mocked filesystem (no real ~/.claude/ reads)\n- [ ] Test fixtures match actual data schemas\n- [ ] All tests pass with `pnpm test`\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:11.994480Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.1"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.2",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.2.md",
+        "status": "todo",
+        "title": "Build data layer: types, Claude data readers, and model ID mapping",
+        "updated_at": "2026-03-01T03:33:51.794313Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.2",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.2 Build data layer: types, Claude data readers, and model ID mapping\n\n## Description\nBuild the core data layer that reads and parses all Claude Code data from ~/.claude/. This includes TypeScript type definitions for all data sources, reader functions for each cache/config file, and the model ID mapping layer that converts between full model IDs and pricing short names.\n\n**Size:** M\n**Files:** src/lib/data/types.ts, src/lib/data/claude/stats.ts, src/lib/data/claude/costs.ts, src/lib/data/claude/sessions.ts, src/lib/data/claude/skills.ts, src/lib/data/claude/agents.ts, src/lib/data/claude/settings.ts, src/lib/data/claude/model-mapping.ts\n\n## Approach\n- Define TypeScript interfaces matching discovered schemas:\n  - StatsCache: { version, lastComputedDate, dailyActivity[], dailyModelTokens, modelUsage, totalSessions, totalMessages, longestSession, firstSessionDate, hourCounts, totalSpeculationTimeSavedMs }\n  - CostCache: { days: Record<string, Record<string, TokenUsage>>, version, lastFullScan }\n  - PricingData: { updated, source, models: Record<string, ModelPricing> }\n  - SessionEntry: { display, pastedContents, timestamp, project, sessionId? }\n- Build model ID mapping: regex pattern to extract short name from full ID (e.g., \"claude-opus-4-5-20251101\" -> \"opus-4-5\")\n- Use fs.readFile with JSON.parse wrapped in try/catch for all readers\n- Parse history.jsonl line-by-line (split on newline, JSON.parse each)\n- Read skills/ and agents/ directories with fs.readdir\n- Read settings.json for hooks, plugins, model preference\n\n## Key context\n- Model IDs in stats-cache use full format: \"claude-opus-4-5-20251101\"\n- Model IDs in readout-pricing use short format: \"opus-4-5\"\n- history.jsonl is JSONL format (one JSON object per line), ~235KB\n- skills/ contains 50+ directories, some are symlinks\n- agents/ contains markdown files\n- All readers must handle missing files gracefully (return empty/default data)\n## Acceptance\n- [ ] TypeScript interfaces defined for all data sources (StatsCache, CostCache, PricingData, SessionEntry, SkillInfo, AgentInfo, SettingsData)\n- [ ] readStatsCache() reads and parses ~/.claude/stats-cache.json\n- [ ] readCostCache() reads and parses ~/.claude/readout-cost-cache.json\n- [ ] readPricing() reads and parses ~/.claude/readout-pricing.json\n- [ ] readSessionHistory() parses ~/.claude/history.jsonl into SessionEntry[]\n- [ ] readSkills() lists skill directories from ~/.claude/skills/\n- [ ] readAgents() lists and reads agent files from ~/.claude/agents/\n- [ ] readSettings() reads ~/.claude/settings.json\n- [ ] mapModelId() converts full model IDs to pricing short names\n- [ ] All readers return typed defaults when files are missing (no throws)\n- [ ] All readers handle malformed JSON gracefully (try/catch, log warning)\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:12.137258Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.1"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.3",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.3.md",
+        "status": "todo",
+        "title": "Build data layer: git repo scanning, config reader, and cost calculator",
+        "updated_at": "2026-03-01T03:34:05.993392Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.3",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.3 Build data layer: git repo scanning, config reader, and cost calculator\n\n## Description\nBuild the git repo scanning module, config file reader, and cost calculation engine. The git scanner discovers repos from configured directories, reads commit history/status, and caches results. The config reader handles claudeitor.config.json with tilde expansion. The cost calculator combines token usage data with pricing to compute per-model and aggregate costs.\n\n**Size:** M\n**Files:** src/lib/data/git/scanner.ts, src/lib/data/git/types.ts, src/lib/data/config.ts, src/lib/data/claude/cost-calculator.ts\n\n## Approach\n- Git scanner: use child_process.exec for git commands (git log, git status, git rev-parse)\n- Discover repos: recursively scan configured repoDirs for .git directories (max depth 3)\n- Cache scan results keyed by repo path + HEAD commit hash (skip unchanged repos)\n- Per-repo data: recent commits (last 30 days), uncommitted file count, unpushed commit count, branch info\n- Config reader: read claudeitor.config.json from project root, expand ~ to os.homedir()\n- Cost calculator: iterate CostCache days, map model IDs to pricing, compute daily/model/total costs\n- Handle missing git binary, non-git directories, permission errors\n\n## Key context\n- Repo scanning must be incremental: use git rev-parse HEAD to detect changes\n- Tilde (~) in paths must be expanded manually in Node.js (os.homedir())\n- Cost calculation must handle models not present in pricing file (log warning, skip)\n- Git commands may timeout on very large repos - use timeout option in exec\n## Acceptance\n- [ ] scanRepos() discovers git repositories from configured directories\n- [ ] Per-repo: getRepoInfo() returns recent commits, uncommitted files, unpushed commits, branch\n- [ ] Incremental scanning: unchanged repos (same HEAD) are skipped\n- [ ] getCommitsToday() returns commit count across all repos for current day\n- [ ] readConfig() reads claudeitor.config.json with tilde expansion\n- [ ] readConfig() returns sensible defaults when config file is missing\n- [ ] calculateCosts() computes per-model costs from CostCache + PricingData\n- [ ] calculateCosts() handles missing models in pricing (warns, skips)\n- [ ] calculateDailyCosts() returns cost-per-day array for trend charts\n- [ ] Git timeout handling: repos that take >10s are skipped with warning\n- [ ] Missing git binary detected gracefully (not a crash)\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:12.272034Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.1"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.4",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.4.md",
+        "status": "todo",
+        "title": "Build layout shell with sidebar navigation, header, and theme system",
+        "updated_at": "2026-03-01T03:34:21.173091Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.4",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.4 Build layout shell with sidebar navigation, header, and theme system\n\n## Description\nBuild the main application layout with collapsible sidebar navigation, header with time-aware greeting, and the Tailwind v4 theme system with system light/dark preference. The sidebar follows the section structure from the epic spec. The layout provides the shell that all pages render within.\n\n**Size:** M\n**Files:** src/routes/+layout.svelte, src/routes/+layout.server.ts, src/lib/components/layout/Sidebar.svelte, src/lib/components/layout/Header.svelte, src/lib/stores/theme.ts, src/lib/stores/navigation.ts\n\n## Approach\n- Layout: two-column with collapsible sidebar (left) and content area (right)\n- Sidebar sections: Overview (Readout), Monitor (Live, Sessions, Costs, Setup*, Ports*), Workspace (Repos, Work Graph*, Repo Pulse*, Timeline, Diffs*, Snapshots*), Config (Skills, Agents, Memory, Hooks), Health (Hygiene*, Deps*, Worktrees*, Env*, Lint*), Settings (bottom) \u2014 items marked * are stubs\n- Active route highlighting using $page.url from $app/stores\n- Header: time-aware greeting (\"Morning session, Eric\" / \"Night session, Eric\")\n- Theme: use Tailwind v4 dark: variant with prefers-color-scheme media query\n- Follow clean-web-design skill for visual patterns\n- Reference existing layout pattern in ThreadErrorAnalyzer project but use Svelte 5 runes\n\n## Key context\n- Svelte 5: use $state for sidebar collapsed state, NOT writable stores\n- Tailwind v4 dark mode: use class strategy with system preference detection via matchMedia\n- Sidebar should be collapsible on smaller screens (responsive)\n- Use $page from $app/stores (this is the one legitimate use of Svelte stores, not component state)\n## Acceptance\n- [ ] +layout.svelte renders sidebar + content area\n- [ ] Sidebar shows all sections with correct hierarchy from epic spec\n- [ ] Active route is visually highlighted in sidebar\n- [ ] Sidebar items marked as stubs show a subtle indicator\n- [ ] Header shows time-aware greeting based on current hour\n- [ ] System light/dark theme works via prefers-color-scheme\n- [ ] Sidebar is collapsible (toggle button)\n- [ ] Layout is responsive: sidebar collapses on narrow screens\n- [ ] Navigation between all pages works (links render correct hrefs)\n- [ ] Footer shows plugin and hook counts placeholder\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:12.415247Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.4"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.5",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.5.md",
+        "status": "todo",
+        "title": "Build UI primitives and stat card components",
+        "updated_at": "2026-03-01T03:34:41.570430Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.5",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.5 Build UI primitives and stat card components\n\n## Description\nBuild reusable UI primitive components and the stat card system used across the dashboard. Stat cards show a metric value with label, trend indicator (colored dot showing up/down vs previous period), and optional link. Also build alert card, session card, and repo chip components used on the Readout page.\n\n**Size:** M\n**Files:** src/lib/components/ui/Badge.svelte, src/lib/components/ui/Skeleton.svelte, src/lib/components/ui/Tooltip.svelte, src/lib/components/cards/StatCard.svelte, src/lib/components/cards/AlertCard.svelte, src/lib/components/cards/SessionCard.svelte, src/lib/components/cards/RepoChip.svelte, src/lib/components/cards/InfoCard.svelte\n\n## Approach\n- StatCard: title, value, trend (up/down/neutral), trend color (green/red/gray), subtitle, link\n- Trend indicator: small colored dot (green=up, red=down, gray=neutral) computed from current vs previous period\n- AlertCard: icon, message, severity, snooze button with configurable duration (1hr, 1day, 1week)\n- Snooze state stored in localStorage\n- SessionCard: session description, repo link, time ago (relative), click navigates to /sessions/:id\n- RepoChip: repo name badge with activity score indicator\n- InfoCard: generic card for Skills/Agents/Memory/Repos bottom row\n- All components use Svelte 5 $props() rune, NOT export let\n- Follow clean-web-design skill for spacing, typography, colors\n\n## Key context\n- Svelte 5: use let { prop1, prop2 } = $props() pattern\n- Trend calculation: compare current period value to same-length previous period\n- Alert snooze: store { alertId: snoozeUntilTimestamp } in localStorage\n## Acceptance\n- [ ] StatCard renders title, value, and trend indicator (colored dot)\n- [ ] StatCard trend: green dot for up, red for down, gray for neutral\n- [ ] AlertCard shows message with snooze button\n- [ ] Alert snooze persists across page reloads (localStorage)\n- [ ] SessionCard shows description, repo, and relative time\n- [ ] RepoChip renders as a clickable badge with activity indicator\n- [ ] InfoCard renders title, count/content, and link\n- [ ] Skeleton component for loading states\n- [ ] All components use Svelte 5 $props() (no export let)\n- [ ] Components follow clean-web-design patterns (spacing, colors, typography)\n- [ ] Components support both light and dark themes\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:12.556210Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.1"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.6",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.6.md",
+        "status": "todo",
+        "title": "Build D3.js chart components (Activity, HourlyDistribution, CostByModel)",
+        "updated_at": "2026-03-01T03:34:57.081421Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.6",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.6 Build D3.js chart components (Activity, HourlyDistribution, CostByModel)\n\n## Description\nBuild three D3.js chart components for the dashboard: ActivityChart (30-day bar chart), HourlyDistributionChart (24-hour activity pattern), and CostByModelChart (horizontal bar chart). All charts are fully interactive with tooltips, click-to-filter, and linked interactions. Charts render in SVG using D3 scales and axes.\n\n**Size:** M\n**Files:** src/lib/components/charts/ActivityChart.svelte, src/lib/components/charts/HourlyDistributionChart.svelte, src/lib/components/charts/CostByModelChart.svelte, src/lib/components/charts/ChartTooltip.svelte, src/lib/utils/chart-helpers.ts\n\n## Approach\n- D3 + Svelte 5 integration pattern: use bind:this for SVG container refs, $derived for scales, $effect for axis rendering\n- ActivityChart: vertical bars, one per day (30 days), x=date, y=messageCount (from stats-cache dailyActivity)\n  - Tooltip on hover showing date + counts\n  - Click bar to drill into that day\n  - Brush selection for date range filtering\n- HourlyDistributionChart: 24 vertical bars (hours 0-23), y=combined activity count\n  - Data from stats-cache hourCounts + git commit timestamps\n- CostByModelChart: horizontal bars, one per model\n  - Data from aggregated cost-cache by model\n  - Click to navigate to /costs\n- ChartTooltip: shared tooltip component positioned near mouse\n- chart-helpers: formatCurrency, formatNumber, responsive width calculation\n- Use bind:clientWidth on container for responsive chart sizing\n\n## Key context\n- D3 v7+: use d3.scaleBand for bar charts, d3.scaleLinear for values\n- Svelte 5: use $effect for D3 axis rendering (select + call axis), clean up in return\n- bind:clientWidth in Svelte 5 uses ResizeObserver natively (no polyfill needed)\n- Charts must support both light and dark themes (adjust axis/text colors)\n## Acceptance\n- [ ] ActivityChart renders 30-day bar chart from dailyActivity data\n- [ ] ActivityChart: hover tooltips show date + messageCount + sessionCount\n- [ ] ActivityChart: click bar drills down (dispatches event with date)\n- [ ] HourlyDistributionChart renders 24-hour bar chart from hourCounts\n- [ ] CostByModelChart renders horizontal bars per model with cost values\n- [ ] CostByModelChart: click navigates to /costs\n- [ ] All charts responsive: resize with container width\n- [ ] All charts support light and dark themes\n- [ ] ChartTooltip positions near mouse cursor\n- [ ] Charts render correctly with empty data (no crashes, shows empty state)\n- [ ] D3 scales and axes render cleanly with proper labels and formatting\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:12.698658Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.2"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.7",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.7.md",
+        "status": "todo",
+        "title": "Build SSE endpoint with chokidar file watching",
+        "updated_at": "2026-03-01T03:35:09.343300Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.7",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.7 Build SSE endpoint with chokidar file watching\n\n## Description\nBuild the Server-Sent Events endpoint that pushes real-time data updates to the Readout page. A chokidar file watcher monitors ~/.claude/ for changes and emits SSE events when cache files are updated. The endpoint streams typed events (stats-update, cost-update, session-update) that the client subscribes to.\n\n**Size:** M\n**Files:** src/routes/api/sse/+server.ts, src/lib/data/watcher.ts, src/lib/stores/realtime.svelte.ts\n\n## Approach\n- Use sveltekit-sse library for SSE endpoint (handles connection lifecycle)\n- Chokidar file watcher on ~/.claude/ watching: stats-cache.json, readout-cost-cache.json, history.jsonl\n- Use awaitWriteFinish option to prevent reading partial writes\n- On file change: re-read the changed file using data readers from task 2, emit typed SSE event\n- Client store (realtime.svelte.ts): connect to SSE endpoint, update $state on received events\n- SSE event types: stats-update (dailyActivity, modelUsage), cost-update (cost totals), session-update (new sessions)\n- Handle SSE reconnection with exponential backoff\n- Clean up watcher on server shutdown\n\n## Key context\n- sveltekit-sse provides produce() function for SvelteKit SSE endpoints\n- Chokidar awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 }\n- Multiple browser tabs: each gets its own SSE connection (shared watcher server-side)\n- Client store should use Svelte 5 runes ($state) for reactive updates\n## Acceptance\n- [ ] SSE endpoint at /api/sse streams events to connected clients\n- [ ] Chokidar watches ~/.claude/stats-cache.json, readout-cost-cache.json, history.jsonl\n- [ ] File changes trigger re-read and SSE event emission\n- [ ] awaitWriteFinish prevents partial JSON reads\n- [ ] Client store connects to SSE and updates reactive state\n- [ ] SSE reconnects with exponential backoff on disconnect\n- [ ] Typed events: stats-update, cost-update, session-update\n- [ ] Watcher cleans up on server shutdown (no orphaned watchers)\n- [ ] Multiple browser tabs receive independent SSE streams\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:12.837143Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.2",
+          "fn-1-claudeitor-coding-activity-dashboard.3",
+          "fn-1-claudeitor-coding-activity-dashboard.5",
+          "fn-1-claudeitor-coding-activity-dashboard.6",
+          "fn-1-claudeitor-coding-activity-dashboard.7"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.8",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.8.md",
+        "status": "todo",
+        "title": "Build Readout page (main dashboard) with all sections",
+        "updated_at": "2026-03-01T03:35:25.590485Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.8",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.8 Build Readout page (main dashboard) with all sections\n\n## Description\nBuild the Readout page (main dashboard) \u2014 the primary view that brings together all components. This is the most complex page, assembling stat cards, charts, recent sessions, alerts, recently active repos, and bottom info cards into a responsive grid layout that matches the reference screenshot.\n\n**Size:** M\n**Files:** src/routes/+page.svelte, src/routes/+page.server.ts\n\n## Approach\n- +page.server.ts load function: call all data readers (stats, costs, sessions, repos, skills, agents, settings) in parallel\n- Responsive grid layout: follow reference screenshot \u2014 4 stat cards top row, charts in middle, session list + alerts, bottom 4 info cards\n- Wire SSE realtime store for live updates to stat cards and charts\n- Top stat cards: Repos count, Commits Today, Sessions (total), Est. Cost (total)\n  - Each with trend indicator comparing current period vs previous\n- Activity Chart: pass dailyActivity from stats-cache\n- When You Work Chart: pass hourCounts from stats-cache\n- Cost by Model Chart: pass aggregated costs from cost calculator\n- Recent Sessions: last 5 sessions from history.jsonl with descriptions and repo links\n- Alerts: compute from repo scanning (uncommitted files > 0, unpushed commits > 0)\n- Recently Active: repo chips with combined activity scores (commits + sessions + file changes)\n- Bottom cards: Skills (count + link), Agents (count + link), Memory (CLAUDE.md line counts + link), Repos (list + link)\n- Header: time-aware greeting + AI summary placeholder (show skeleton if no API key)\n\n## Key context\n- Readout is the only page with real-time SSE updates\n- All data loading happens server-side in +page.server.ts\n- SSE updates overlay on top of initial server-loaded data\n- AI summary: defer to settings \u2014 if no API key, show \"Configure API key for AI insights\"\n- Grid must be responsive but desktop-primary\n## Acceptance\n- [ ] Readout page renders complete dashboard layout matching reference screenshot\n- [ ] 4 stat cards top row: Repos, Commits Today, Sessions, Est. Cost\n- [ ] Stat cards show real data from ~/.claude/ cache files\n- [ ] Stat cards have trend indicators (colored dots)\n- [ ] Activity Chart renders with real 30-day data\n- [ ] When You Work Chart renders with real hourly data\n- [ ] Cost by Model Chart renders with real cost data\n- [ ] Recent Sessions shows last 5 sessions with descriptions\n- [ ] Alerts section shows hygiene issues from repo scanning\n- [ ] Recently Active shows repo chips with activity scores\n- [ ] Bottom cards show Skills, Agents, Memory, Repos with real data\n- [ ] SSE updates refresh stat cards and charts in real-time\n- [ ] Header shows time-aware greeting\n- [ ] Layout is responsive (works on different screen widths)\n- [ ] Page loads in under 2 seconds using cache-first strategy\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    },
+    {
+      "data": {
+        "assignee": null,
+        "claim_note": "",
+        "claimed_at": null,
+        "created_at": "2026-03-01T03:33:12.975385Z",
+        "depends_on": [
+          "fn-1-claudeitor-coding-activity-dashboard.2",
+          "fn-1-claudeitor-coding-activity-dashboard.5"
+        ],
+        "epic": "fn-1-claudeitor-coding-activity-dashboard",
+        "id": "fn-1-claudeitor-coding-activity-dashboard.9",
+        "priority": null,
+        "spec_path": ".flow/tasks/fn-1-claudeitor-coding-activity-dashboard.9.md",
+        "status": "todo",
+        "title": "Build Sessions page with list view, session detail, and replay",
+        "updated_at": "2026-03-01T03:35:47.302710Z"
+      },
+      "id": "fn-1-claudeitor-coding-activity-dashboard.9",
+      "runtime": null,
+      "spec": "# fn-1-claudeitor-coding-activity-dashboard.9 Build Sessions page with list view, session detail, and replay\n\n## Description\nBuild the Sessions page with three views: session list (searchable/filterable), session detail (metadata + AI summary), and session replay (scrubable timeline with conversation and file diffs). This is one of the most feature-rich pages in the dashboard.\n\n**Size:** M\n**Files:** src/routes/sessions/+page.svelte, src/routes/sessions/+page.server.ts, src/routes/sessions/[id]/+page.svelte, src/routes/sessions/[id]/+page.server.ts, src/lib/components/sessions/SessionList.svelte, src/lib/components/sessions/SessionDetail.svelte, src/lib/components/sessions/SessionReplay.svelte, src/lib/components/sessions/ReplayTimeline.svelte, src/lib/data/claude/session-detail.ts\n\n## Approach\n- Session list: paginated list from history.jsonl with search (filter by display text) and sort (by date)\n- Session detail: metadata (duration, model, tokens, cost, files touched) computed from session data\n- AI summary: call Anthropic API with session transcript, cache result in project data dir\n  - If no API key: show \"Configure API key in Settings for AI summaries\"\n  - Cache path: ~/.claude/projects/<project>/claudeitor-cache/summary-<sessionId>.json\n- Session replay: parse session JSONL file for full transcript\n  - Scrubable timeline at bottom: slider from start to end of session\n  - Show conversation messages up to the scrubbed point\n  - Show file diffs at each step (reconstruct from Read/Write/Edit tool results)\n- Use virtualized list for long sessions (if feasible with Svelte 5)\n\n## Key context\n- Session JSONL files are at ~/.claude/projects/<encoded-path>/<sessionId>.jsonl\n- Path encoding replaces / with - and prepends -\n- Session files can be 4MB+ \u2014 need streaming/chunked reads\n- AI summary uses configurable model from claudeitor.config.json llm section\n- File diffs must be reconstructed from tool call results in the session transcript\n## Acceptance\n- [ ] Sessions list page shows all sessions from history.jsonl\n- [ ] Session list supports text search filtering\n- [ ] Session list sorted by date (newest first) with pagination\n- [ ] Clicking a session navigates to /sessions/[id] detail page\n- [ ] Session detail shows metadata: duration, model, tokens, cost\n- [ ] AI summary generated via Anthropic API and cached locally\n- [ ] AI summary shows placeholder when no API key configured\n- [ ] Session replay renders conversation transcript with timestamps\n- [ ] Scrubable timeline slider controls visible conversation range\n- [ ] File diffs reconstructed from tool call results in transcript\n- [ ] Large sessions (4MB+) load without crashing (streaming/chunked)\n- [ ] Empty state shown when no sessions exist\n## Done summary\nTBD\n\n## Evidence\n- Commits:\n- Tests:\n- PRs:\n"
+    }
+  ]
+}

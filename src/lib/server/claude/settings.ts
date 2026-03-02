@@ -1,0 +1,37 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
+import type { SettingsData } from '../../data/types.js';
+import { withSpan } from '../telemetry/span-helpers.js';
+import { warn } from '../telemetry/logger.js';
+
+const DEFAULT_CLAUDE_DIR = join(homedir(), '.claude');
+
+function emptySettings(): SettingsData {
+	return { env: {}, model: '', hooks: {}, enabledPlugins: {} };
+}
+
+export async function readSettings(claudeDir = DEFAULT_CLAUDE_DIR): Promise<SettingsData> {
+	return withSpan(
+		'op:readSettings',
+		{
+			'code.filepath': 'src/lib/server/claude/settings.ts',
+			'data.source': 'settings.json'
+		},
+		async () => {
+			try {
+				const raw = await readFile(join(claudeDir, 'settings.json'), 'utf-8');
+				return JSON.parse(raw) as SettingsData;
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+					return emptySettings();
+				}
+				warn('settings', 'Failed to parse settings.json', {
+					'error.type': (err as Error).name,
+					'error.stack': (err as Error).stack
+				});
+				return emptySettings();
+			}
+		}
+	);
+}

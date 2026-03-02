@@ -1,6 +1,6 @@
 # UPDATED 9/24/2025
 
-# DAMN YOU MACOS FINDER 🖕
+# DAMN YOU MACOS FINDER
 .DS_Store
 
 .env
@@ -28,3 +28,14 @@ Session.vim
 
 # Build directory
 dist/*
+build/
+
+# SvelteKit
+.svelte-kit/
+
+# Config with secrets
+claudeitor.config.json
+!claudeitor.config.example.json
+
+# Telemetry data
+.claudeitor/
