@@ -57,9 +57,8 @@ Rewrite the `/live` route server load function to return enriched session data s
 - [ ] Instrumented with `withSpan()` telemetry
 - [ ] `pnpm check` passes
 ## Done summary
-TBD
-
+Rewrote the /live server load function to enrich each active session with telemetry from the singleton sessionTailer, compute rolling cost via per-million token pricing from readPricing(), map model IDs to display names, and return a route-specific 10s polling interval. Added EnrichedActiveSession type to shared types.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 737a686158582021526780556736bcc6da5d2d66
+- Tests: pnpm check, pnpm test
 - PRs:
