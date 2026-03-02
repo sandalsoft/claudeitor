@@ -41,9 +41,8 @@ Implement the /diffs and /snapshots routes.
 - [ ] Both routes use `withSpan()` instrumentation
 - [ ] `pnpm check` passes
 ## Done summary
-TBD
-
+Implemented /diffs and /snapshots routes replacing ComingSoon stubs. /diffs streams session JSONL files via readline, extracts all file mutations (Edit, Write, NotebookEdit) with inline diffs, sorted by timestamp desc (take 50). /snapshots flattens commits from scanRepos (30-day window), paginates 20 per page, and uses execFile with array args for git show --numstat file counts on the current page only.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: ca6aaeb, 9af2143
+- Tests: pnpm check
 - PRs:
