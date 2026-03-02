@@ -1,7 +1,7 @@
 {
   "branch_name": "fn-4-implement-all-stubbed-dashboard-routes",
-  "completion_review_status": "unknown",
-  "completion_reviewed_at": null,
+  "completion_review_status": "ship",
+  "completion_reviewed_at": "2026-03-02T14:26:30.217032Z",
   "created_at": "2026-03-02T12:05:46.036646Z",
   "default_impl": null,
   "default_review": null,
@@ -16,5 +16,5 @@
   "spec_path": ".flow/specs/fn-4-implement-all-stubbed-dashboard-routes.md",
   "status": "open",
   "title": "Implement All Stubbed Dashboard Routes",
-  "updated_at": "2026-03-02T12:39:53.044710Z"
+  "updated_at": "2026-03-02T14:26:30.217308Z"
 }
