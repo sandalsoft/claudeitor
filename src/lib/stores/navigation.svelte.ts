@@ -61,7 +61,7 @@ export const navSections: NavSection[] = [
 			{ label: 'Live', href: '/live', icon: 'activity' },
 			{ label: 'Sessions', href: '/sessions', icon: 'messages-square' },
 			{ label: 'Costs', href: '/costs', icon: 'dollar-sign' },
-			{ label: 'Setup', href: '/setup', icon: 'wrench', stub: true },
+			{ label: 'Setup', href: '/setup', icon: 'wrench' },
 			{ label: 'Ports', href: '/ports', icon: 'network' }
 		]
 	},
@@ -69,11 +69,11 @@ export const navSections: NavSection[] = [
 		title: 'Workspace',
 		items: [
 			{ label: 'Repos', href: '/repos', icon: 'git-branch' },
-			{ label: 'Work Graph', href: '/work-graph', icon: 'git-merge', stub: true },
-			{ label: 'Repo Pulse', href: '/repo-pulse', icon: 'heart-pulse', stub: true },
+			{ label: 'Work Graph', href: '/work-graph', icon: 'git-merge' },
+			{ label: 'Repo Pulse', href: '/repo-pulse', icon: 'heart-pulse' },
 			{ label: 'Timeline', href: '/timeline', icon: 'calendar' },
-			{ label: 'Diffs', href: '/diffs', icon: 'diff', stub: true },
-			{ label: 'Snapshots', href: '/snapshots', icon: 'camera', stub: true }
+			{ label: 'Diffs', href: '/diffs', icon: 'diff' },
+			{ label: 'Snapshots', href: '/snapshots', icon: 'camera' }
 		]
 	},
 	{
@@ -88,17 +88,17 @@ export const navSections: NavSection[] = [
 	{
 		title: 'Health',
 		items: [
-			{ label: 'Hygiene', href: '/hygiene', icon: 'shield-check', stub: true },
-			{ label: 'Deps', href: '/deps', icon: 'package', stub: true },
-			{ label: 'Worktrees', href: '/worktrees', icon: 'folder-tree', stub: true },
+			{ label: 'Hygiene', href: '/hygiene', icon: 'shield-check' },
+			{ label: 'Deps', href: '/deps', icon: 'package' },
+			{ label: 'Worktrees', href: '/worktrees', icon: 'folder-tree' },
 			{ label: 'Env', href: '/env', icon: 'variable' },
-			{ label: 'Lint', href: '/lint', icon: 'check-circle', stub: true }
+			{ label: 'Lint', href: '/lint', icon: 'check-circle' }
 		]
 	},
 	{
 		title: 'Extend',
 		items: [
-			{ label: 'Extensions', href: '/extensions', icon: 'puzzle', stub: true }
+			{ label: 'Extensions', href: '/extensions', icon: 'puzzle' }
 		]
 	}
 ];

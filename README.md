@@ -33,6 +33,30 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173). That's it — Claudeitor re
 
 **Repos** — Track all your git repositories. Commit counts, branch info, uncommitted and unpushed change detection.
 
+**Setup** — Environment health check. Verifies Claude data directory, config file, API key, skills, hooks, and git CLI availability at a glance.
+
+**Ports** — See which local ports are in use (macOS). Shows process names, PIDs, and port numbers with a 30-second cache and manual refresh.
+
+**Extensions** — Browse installed Claude Code plugins, skills, agents, and hooks. Shows plugin details, enabled state, and counts across all extension types.
+
+**Env** — Lists environment variable names found in `.env` files across your repos. Names only, never values.
+
+**Work Graph** — D3.js hub-and-spoke visualization of branches across all monitored repos. Filtered to 100 branches, namespaced by repo.
+
+**Repo Pulse** — Activity heatmap and contributor stats derived from recent commits. Identifies most active repos, top contributors, and commit frequency.
+
+**Diffs** — Browse file mutations from Claude Code sessions. See which files were created, modified, or deleted, grouped by session.
+
+**Snapshots** — Paginated git commit log across all repos with file change counts and filtering. 30-day rolling window.
+
+**Hygiene** — Git health checks: stale branches (60+ days), ahead/behind upstream counts, and uncommitted changes per repo.
+
+**Worktrees** — Lists active git worktrees across all monitored repositories with paths and branch info.
+
+**Deps** — On-demand `npm audit` and `npm outdated` results for each repo. Handles offline/timeout gracefully.
+
+**Lint** — On-demand ESLint and TypeScript checking per repo. Runs local executables only, with error and warning counts.
+
 **Config** — Read-only views of your Skills, Agents, CLAUDE.md memory files, and Hooks.
 
 **Settings** — Theme switching (system/light/dark), API key management, model selection, repo directory configuration, and a `Cmd+K` command palette to jump anywhere instantly.
@@ -121,6 +145,18 @@ src/
 │   ├── costs/               # Cost analysis
 │   ├── live/                # Active session monitoring
 │   ├── repos/               # Repository health
+│   ├── setup/               # Environment health checks
+│   ├── ports/               # Listening port scanner
+│   ├── extensions/          # Plugins, skills, agents overview
+│   ├── env/                 # Environment variable names
+│   ├── work-graph/          # D3.js branch visualization
+│   ├── repo-pulse/          # Commit activity heatmap
+│   ├── diffs/               # Session file mutations
+│   ├── snapshots/           # Git commit log browser
+│   ├── hygiene/             # Git health checks
+│   ├── worktrees/           # Git worktree listing
+│   ├── deps/                # npm audit + outdated
+│   ├── lint/                # ESLint + TypeScript checks
 │   ├── skills/              # Skills browser
 │   ├── agents/              # Agents browser
 │   ├── memory/              # CLAUDE.md viewer
@@ -129,7 +165,12 @@ src/
 │   └── api/sse/             # SSE endpoint
 ├── lib/
 │   ├── server/claude/       # Data readers (server-only)
-│   ├── server/git/          # Git scanner
+│   ├── server/git/          # Git scanner + hygiene + worktrees
+│   ├── server/deps/         # npm audit + outdated runner
+│   ├── server/env/          # .env file key scanner
+│   ├── server/lint/         # ESLint + TypeScript runner
+│   ├── server/system/       # Port scanner, safe exec wrapper
+│   ├── server/telemetry/    # OpenTelemetry spans, structured logger
 │   ├── components/
 │   │   ├── charts/          # D3.js chart components
 │   │   ├── cards/           # StatCard, SessionCard, AlertCard
