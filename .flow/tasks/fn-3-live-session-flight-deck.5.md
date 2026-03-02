@@ -55,9 +55,8 @@ Assemble all flight deck components into the `/live` route page. Replace the exi
 - [ ] `pnpm test` passes
 - [ ] Manual smoke test: with an active Claude session, `/live` shows real-time data updating every 10s
 ## Done summary
-TBD
-
+Rewrote the /live route into a full flight deck page assembling FlightCard, BurnRateChart, ToolCallFeed, and FileActivityFeed components with 10s polling, per-session token history tracking (30-point rolling window), click-to-expand detail view, session lifecycle animations (fly-in/fade-out), responsive 2-col grid, and empty state handling.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: c2655e32e5338ed2166c2e0bb67703b5a4294fd4
+- Tests: pnpm check, pnpm test
 - PRs:
