@@ -57,9 +57,8 @@ async function safeExecFile(cmd: string, args: string[], opts: ExecFileOptions):
 - [ ] Both routes use `withSpan()` instrumentation
 - [ ] `pnpm check` passes
 ## Done summary
-TBD
-
+Implemented /deps and /lint routes replacing ComingSoon stubs. /deps runs npm audit/outdated with on-demand form action, caches by lockfile mtime, and handles timeout/offline/unavailable states. /lint runs local eslint and tsc binaries, concatenating tsc stdout+stderr for parsing. Extracted safeExecFile to shared exec.ts module. Added 32 fixture-based tests for all pure parsers (parseAuditJson, parseOutdatedJson, parseEslintJson, parseTscOutput). Both routes use withSpan() instrumentation and execFile with array args.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: f631d3798b5d493df2f694e2485fd4bb06c28caa
+- Tests: pnpm check, pnpm test
 - PRs:

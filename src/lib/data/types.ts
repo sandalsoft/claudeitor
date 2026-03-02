@@ -340,6 +340,59 @@ export interface LintResult {
 	error?: string;
 }
 
+// ─── Branch Graph (/work-graph) ──────────────────────────────
+
+export interface BranchNode {
+	/** Unique ID: `${repoName}:${branchName}`. */
+	id: string;
+	/** Repository name. */
+	repo: string;
+	/** Branch name. */
+	branch: string;
+	/** Abbreviated commit hash at branch tip. */
+	headShort: string;
+	/** Committer date (ISO 8601). */
+	date: string;
+	/** Whether this is the default branch of its repo. */
+	isDefault: boolean;
+}
+
+export interface BranchEdge {
+	/** Source node ID (feature branch). */
+	source: string;
+	/** Target node ID (default branch / hub). */
+	target: string;
+	/** Merge-base commit hash (abbreviated). */
+	mergeBase: string;
+}
+
+// ─── Repo Pulse (/repo-pulse) ────────────────────────────────
+
+export interface RepoPulseInfo {
+	/** Repository name. */
+	name: string;
+	/** Repository path. */
+	path: string;
+	/** Current branch name. */
+	branch: string;
+	/** Commits in the last 7 days. */
+	commits7d: number;
+	/** Commits in the last 30 days. */
+	commits30d: number;
+	/** Unique contributor names (from authorName). */
+	contributors: string[];
+	/** ISO 8601 date of most recent commit (empty if no commits). */
+	lastCommitDate: string;
+	/** Uncommitted file count. */
+	uncommittedFileCount: number;
+	/** Unpushed commit count. */
+	unpushedCommitCount: number;
+	/** Activity score: 7d commits * 3 + 30d commits. */
+	activityScore: number;
+	/** Daily commit counts for sparkline (last 30 days, index 0 = oldest). */
+	sparkline: number[];
+}
+
 // ─── Enriched Active Session (flight deck) ───────────────────
 
 export interface EnrichedActiveSession {
