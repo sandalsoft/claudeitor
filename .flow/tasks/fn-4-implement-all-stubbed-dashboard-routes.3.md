@@ -37,9 +37,8 @@ Implement the /hygiene and /worktrees routes.
 - [ ] Both routes use `withSpan()` instrumentation
 - [ ] `pnpm check` passes
 ## Done summary
-TBD
-
+Implemented /hygiene and /worktrees routes replacing ComingSoon stubs. /hygiene audits repos for uncommitted changes, unpushed commits, stale branches (>60 days, excludes current branch, shows oldest 10), and current-branch-behind-upstream using execFile with array args. /worktrees reads git worktree list --porcelain output. Both routes use withSpan() instrumentation, StatCards, EmptyState, and filtering. All new types (HygieneIssue, StaleBranch, WorktreeInfo) added to src/lib/data/types.ts.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: d7ec08c3c1670297aef1fb278d81314667f18d80
+- Tests: pnpm check, pnpm test
 - PRs:

@@ -259,6 +259,87 @@ export interface WorktreeInfo {
 	repoPath: string;
 }
 
+// ─── Dependency Audit (/deps) ─────────────────────────────────
+
+export type DepAuditStatus = 'ok' | 'warn' | 'error' | 'timeout' | 'offline' | 'unavailable';
+
+export interface AuditVulnerability {
+	/** Severity level from npm audit. */
+	severity: 'info' | 'low' | 'moderate' | 'high' | 'critical';
+	/** Number of vulnerabilities at this severity. */
+	count: number;
+}
+
+export interface OutdatedPackage {
+	/** Package name. */
+	name: string;
+	/** Currently installed version. */
+	current: string;
+	/** Wanted version (semver-compatible). */
+	wanted: string;
+	/** Latest version available. */
+	latest: string;
+	/** Dependency type (dependencies, devDependencies, etc.). */
+	type: string;
+}
+
+export interface DepAuditResult {
+	/** Repository name. */
+	repo: string;
+	/** Repository path. */
+	repoPath: string;
+	/** Overall status of the audit. */
+	status: DepAuditStatus;
+	/** Status message (error details, "offline", etc.). */
+	statusMessage: string;
+	/** Total vulnerability count. */
+	totalVulnerabilities: number;
+	/** Vulnerability breakdown by severity. */
+	vulnerabilities: AuditVulnerability[];
+	/** Outdated packages list. */
+	outdated: OutdatedPackage[];
+}
+
+// ─── Lint Results (/lint) ─────────────────────────────────────
+
+export type LintSeverity = 'error' | 'warning';
+
+export interface LintIssue {
+	/** Source file path (relative to repo root). */
+	filePath: string;
+	/** Line number (1-based). */
+	line: number;
+	/** Column number (1-based). */
+	column: number;
+	/** Issue severity. */
+	severity: LintSeverity;
+	/** Issue message. */
+	message: string;
+	/** ESLint rule ID or "tsc" for TypeScript errors. */
+	ruleId: string;
+}
+
+export interface LintResult {
+	/** Repository name. */
+	repo: string;
+	/** Repository path. */
+	repoPath: string;
+	/** ESLint issues. */
+	eslintIssues: LintIssue[];
+	/** TypeScript compiler issues. */
+	tscIssues: LintIssue[];
+	/** Total error count. */
+	errorCount: number;
+	/** Total warning count. */
+	warningCount: number;
+	/** Whether eslint was available. */
+	eslintAvailable: boolean;
+	/** Whether tsc was available. */
+	tscAvailable: boolean;
+	/** Error message if lint failed entirely. */
+	error?: string;
+}
+
 // ─── Enriched Active Session (flight deck) ───────────────────
 
 export interface EnrichedActiveSession {
