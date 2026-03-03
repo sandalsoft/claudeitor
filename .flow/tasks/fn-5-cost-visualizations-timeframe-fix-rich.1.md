@@ -39,9 +39,8 @@ In `src/routes/costs/+page.server.ts:26-29`:
 - [ ] No TypeScript errors (`npx tsc --noEmit`)
 
 ## Done summary
-TBD
-
+Fixed timeframe selector (1d/7d/30d/All), made Cost by Model donut chart respond to timeframe changes by computing byModel from filteredDaily, and scoped Total Cost stat card to the selected range. Added range=0 support for all-time view.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 00bd59d1fe226a44914fae08e2b9d0d72fe2d6da
+- Tests: npx tsc --noEmit, npm run build
 - PRs:
