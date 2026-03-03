@@ -7,6 +7,8 @@
 		description: string;
 		project?: string;
 		timestamp: number;
+		durationMs?: number;
+		processingMs?: number;
 		class?: string;
 	}
 
@@ -15,6 +17,8 @@
 		description,
 		project,
 		timestamp,
+		durationMs = 0,
+		processingMs = 0,
 		class: className = ''
 	}: Props = $props();
 
@@ -33,6 +37,18 @@
 		if (days < 7) return `${days}d ago`;
 		if (weeks < 4) return `${weeks}w ago`;
 		return new Date(ts).toLocaleDateString();
+	}
+
+	function formatDuration(ms: number): string {
+		if (ms < 1000) return '<1s';
+		const seconds = Math.floor(ms / 1000);
+		if (seconds < 60) return `${seconds}s`;
+		const minutes = Math.floor(seconds / 60);
+		const remainingSeconds = seconds % 60;
+		if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+		const hours = Math.floor(minutes / 60);
+		const remainingMinutes = minutes % 60;
+		return `${hours}h ${remainingMinutes}m`;
 	}
 
 	function extractRepoName(projectPath: string): string {
@@ -72,5 +88,11 @@
 			<Icon name="clock" size={12} class="shrink-0" />
 			<span>{timeAgo}</span>
 		</span>
+		{#if durationMs > 0}
+			<span class="flex items-center gap-1 tabular-nums" title="Wall clock / active processing">
+				{formatDuration(durationMs)}
+				<span class="text-muted-foreground/60">({formatDuration(processingMs)} active)</span>
+			</span>
+		{/if}
 	</div>
 </a>

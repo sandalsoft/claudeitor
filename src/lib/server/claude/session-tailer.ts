@@ -68,6 +68,12 @@ interface SessionTailState {
 	pendingToolCalls: Map<string, PendingToolCall>;
 	model: string;
 	messageCount: number;
+	/** Cumulative processing time in ms (user→assistant intervals). */
+	processingMs: number;
+	/** Timestamp of the most recent user message (for computing current turn). */
+	lastUserTimestamp: string;
+	/** Timestamp of the most recent assistant message in current turn. */
+	lastAssistantTimestamp: string;
 }
 
 // ─── Factory ────────────────────────────────────────────────────
@@ -104,7 +110,10 @@ export function createSessionTailer(): SessionTailer {
 			recentFiles: [],
 			pendingToolCalls: new Map(),
 			model: '',
-			messageCount: 0
+			messageCount: 0,
+			processingMs: 0,
+			lastUserTimestamp: '',
+			lastAssistantTimestamp: ''
 		};
 	}
 
@@ -170,6 +179,7 @@ export function createSessionTailer(): SessionTailer {
 
 			if (type === 'assistant') {
 				state.messageCount++;
+				if (ts) state.lastAssistantTimestamp = ts;
 				const message = entry.message as Record<string, unknown> | undefined;
 				if (!message) continue;
 
@@ -249,6 +259,16 @@ export function createSessionTailer(): SessionTailer {
 				}
 			} else if (type === 'user') {
 				state.messageCount++;
+				// Finalize the previous turn's processing time before starting a new one
+				if (state.lastUserTimestamp && state.lastAssistantTimestamp) {
+					const userMs = new Date(state.lastUserTimestamp).getTime();
+					const assistantMs = new Date(state.lastAssistantTimestamp).getTime();
+					if (assistantMs > userMs) {
+						state.processingMs += assistantMs - userMs;
+					}
+				}
+				state.lastUserTimestamp = ts;
+				state.lastAssistantTimestamp = '';
 			}
 		}
 	}
@@ -331,12 +351,23 @@ export function createSessionTailer(): SessionTailer {
 	}
 
 	function snapshot(state: SessionTailState): LiveSessionTelemetry {
+		// Include the in-progress turn (not yet finalized by a new user message)
+		let processingMs = state.processingMs;
+		if (state.lastUserTimestamp && state.lastAssistantTimestamp) {
+			const userMs = new Date(state.lastUserTimestamp).getTime();
+			const assistantMs = new Date(state.lastAssistantTimestamp).getTime();
+			if (assistantMs > userMs) {
+				processingMs += assistantMs - userMs;
+			}
+		}
+
 		return {
 			tokens: { ...state.tokens },
 			recentToolCalls: [...state.recentToolCalls],
 			recentFiles: [...state.recentFiles],
 			messageCount: state.messageCount,
-			model: state.model
+			model: state.model,
+			processingMs
 		};
 	}
 

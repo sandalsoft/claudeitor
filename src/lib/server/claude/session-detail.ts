@@ -33,10 +33,30 @@ export interface SessionMessage {
 
 export interface ToolCallInfo {
 	name: string;
+	/** Unique tool call ID for linking results. */
+	id?: string;
 	/** Best-effort file path if tool involves a file. */
 	filePath?: string;
 	/** Best-effort diff content. Null if reconstruction failed. */
 	diff?: string | null;
+	/** AskUserQuestion: structured question data. */
+	questions?: AskUserQuestionData[];
+	/** AskUserQuestion: user's response text. */
+	userAnswer?: string;
+}
+
+export interface AskUserQuestionOption {
+	label: string;
+	description: string;
+}
+
+export interface AskUserQuestionData {
+	question: string;
+	header: string;
+	options: AskUserQuestionOption[];
+	multiSelect: boolean;
+	/** Parsed from tool_result — the option(s) the user chose. */
+	selectedAnswer?: string;
 }
 
 export interface SessionMetadata {
@@ -45,6 +65,8 @@ export interface SessionMetadata {
 	startTime: string;
 	endTime: string;
 	durationMs: number;
+	/** Time Claude spent actively processing (user→assistant intervals). */
+	processingMs: number;
 	model: string;
 	totalInputTokens: number;
 	totalOutputTokens: number;
@@ -144,6 +166,9 @@ async function readSessionDetailImpl(
 	let toolCallCount = 0;
 	const filesModifiedSet = new Set<string>();
 
+	// Map tool_use IDs to ToolCallInfo for linking tool_results
+	const toolCallById = new Map<string, ToolCallInfo>();
+
 	const rl = createInterface({
 		input: createReadStream(found.filePath, { encoding: 'utf-8' }),
 		crlfDelay: Infinity
@@ -185,6 +210,26 @@ async function readSessionDetailImpl(
 				if (typeof content === 'string') {
 					text = content;
 				} else if (Array.isArray(content)) {
+					// Link tool_results to their AskUserQuestion tool_use blocks
+					for (const block of content) {
+						const b = block as Record<string, unknown>;
+						if (b.type === 'tool_result' && b.tool_use_id) {
+							const toolCall = toolCallById.get(b.tool_use_id as string);
+							if (toolCall?.questions) {
+								const resultText =
+									typeof b.content === 'string'
+										? b.content
+										: Array.isArray(b.content)
+											? (b.content as Array<Record<string, unknown>>)
+													.filter((c) => c.type === 'text')
+													.map((c) => c.text as string)
+													.join('\n')
+											: '';
+								toolCall.userAnswer = resultText;
+								parseAnswersIntoQuestions(toolCall.questions, resultText);
+							}
+						}
+					}
 					text = content
 						.filter((b: Record<string, unknown>) => b.type === 'text')
 						.map((b: Record<string, unknown>) => b.text as string)
@@ -227,8 +272,9 @@ async function readSessionDetailImpl(
 						} else if (blockObj.type === 'tool_use') {
 							toolCallCount++;
 							const toolName = blockObj.name as string;
+							const toolId = blockObj.id as string | undefined;
 							const input = blockObj.input as Record<string, unknown> | undefined;
-							const toolInfo: ToolCallInfo = { name: toolName };
+							const toolInfo: ToolCallInfo = { name: toolName, id: toolId };
 
 							// Best-effort file path extraction
 							if (input) {
@@ -252,6 +298,30 @@ async function readSessionDetailImpl(
 										toolInfo.diff = null; // File write, no diff
 									}
 								}
+
+								// AskUserQuestion: extract structured question data
+								if (toolName === 'AskUserQuestion' && Array.isArray(input.questions)) {
+									toolInfo.questions = (
+										input.questions as Array<Record<string, unknown>>
+									).map((q) => ({
+										question: (q.question as string) ?? '',
+										header: (q.header as string) ?? '',
+										options: Array.isArray(q.options)
+											? (q.options as Array<Record<string, unknown>>).map(
+													(o) => ({
+														label: (o.label as string) ?? '',
+														description: (o.description as string) ?? ''
+													})
+												)
+											: [],
+										multiSelect: (q.multiSelect as boolean) ?? false
+									}));
+								}
+							}
+
+							// Register for tool_result linking
+							if (toolId) {
+								toolCallById.set(toolId, toolInfo);
 							}
 
 							toolCalls.push(toolInfo);
@@ -283,6 +353,7 @@ async function readSessionDetailImpl(
 	const startTime = firstTimestamp || new Date().toISOString();
 	const endTime = lastTimestamp || startTime;
 	const durationMs = new Date(endTime).getTime() - new Date(startTime).getTime();
+	const processingMs = computeProcessingTime(messages);
 
 	return {
 		metadata: {
@@ -291,6 +362,7 @@ async function readSessionDetailImpl(
 			startTime,
 			endTime,
 			durationMs: Math.max(0, durationMs),
+			processingMs,
 			model: model || 'unknown',
 			totalInputTokens,
 			totalOutputTokens,
@@ -359,6 +431,75 @@ export async function cacheSummary(
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
+
+/**
+ * Parse the AskUserQuestion tool_result text to extract per-question answers.
+ * Format: 'User has answered your questions: "question1"="answer1", "question2"="answer2"...'
+ */
+function parseAnswersIntoQuestions(
+	questions: AskUserQuestionData[],
+	resultText: string
+): void {
+	// Extract all "question"="answer" pairs from the result text
+	const pairRegex = /"([^"]*)"="([^"]*)"/g;
+	const answers = new Map<string, string>();
+	let match: RegExpExecArray | null;
+	while ((match = pairRegex.exec(resultText)) !== null) {
+		answers.set(match[1], match[2]);
+	}
+
+	// Match answers to questions by question text (may be truncated in result)
+	for (const q of questions) {
+		// Try exact match first
+		if (answers.has(q.question)) {
+			q.selectedAnswer = answers.get(q.question);
+			continue;
+		}
+		// Try prefix match (result text may truncate long questions)
+		for (const [questionText, answer] of answers) {
+			if (
+				q.question.startsWith(questionText) ||
+				questionText.startsWith(q.question.slice(0, 60))
+			) {
+				q.selectedAnswer = answer;
+				break;
+			}
+		}
+	}
+}
+
+/**
+ * Compute the total time Claude spent actively processing.
+ * For each user message, measures the interval from the user's timestamp
+ * to the last consecutive assistant timestamp before the next user message.
+ */
+function computeProcessingTime(messages: SessionMessage[]): number {
+	let totalMs = 0;
+	let i = 0;
+
+	while (i < messages.length) {
+		if (messages[i].role === 'user' && messages[i].timestamp) {
+			const userTime = new Date(messages[i].timestamp).getTime();
+			// Find the last assistant message before the next user message
+			let lastAssistantTime = 0;
+			let j = i + 1;
+			while (j < messages.length && messages[j].role !== 'user') {
+				if (messages[j].role === 'assistant' && messages[j].timestamp) {
+					lastAssistantTime = new Date(messages[j].timestamp).getTime();
+				}
+				j++;
+			}
+			if (lastAssistantTime > userTime) {
+				totalMs += lastAssistantTime - userTime;
+			}
+			i = j;
+		} else {
+			i++;
+		}
+	}
+
+	return Math.max(0, totalMs);
+}
 
 /**
  * Format a simple inline diff from old_string -> new_string.
