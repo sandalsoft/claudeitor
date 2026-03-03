@@ -4,6 +4,10 @@
 	import StatCard from '$lib/components/cards/StatCard.svelte';
 	import CostTrendChart from '$lib/components/charts/CostTrendChart.svelte';
 	import CostBreakdownChart from '$lib/components/charts/CostBreakdownChart.svelte';
+	import CostStackedAreaChart from '$lib/components/charts/CostStackedAreaChart.svelte';
+	import CostTreemapChart from '$lib/components/charts/CostTreemapChart.svelte';
+	import CostHeatmapChart from '$lib/components/charts/CostHeatmapChart.svelte';
+	import CostRadarChart from '$lib/components/charts/CostRadarChart.svelte';
 	import Icon from '$lib/components/layout/Icon.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { formatCurrency, formatNumber } from '$lib/utils/chart-helpers';
@@ -24,6 +28,35 @@
 		url.searchParams.set('range', String(range));
 		goto(url.pathname + url.search, { replaceState: true, noScroll: true });
 	}
+
+	// Stat card: "Range Total" when filtered, "Total Cost" for All
+	const totalCostLabel = $derived(data.range === 0 ? 'Total Cost' : 'Range Total');
+
+	// Stat card: dominant model badge on "Today" card
+	const dominantModelToday = $derived.by(() => {
+		const todayModels: Record<string, number> = {};
+		const today = new Date();
+		const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+		for (const day of data.allDaily) {
+			if (day.date === todayStr) {
+				for (const [model, cost] of Object.entries(day.byModel)) {
+					todayModels[model] = (todayModels[model] ?? 0) + cost;
+				}
+			}
+		}
+
+		let topModel = '';
+		let topCost = 0;
+		for (const [model, cost] of Object.entries(todayModels)) {
+			if (cost > topCost) {
+				topModel = model;
+				topCost = cost;
+			}
+		}
+
+		return topModel;
+	});
 
 	// Table sorting
 	type SortKey = 'date' | 'model' | 'inputTokens' | 'outputTokens' | 'cacheTokens' | 'cost';
@@ -106,27 +139,50 @@
 			description="Cost data is collected automatically from your Claude Code usage. Start a session to begin tracking costs."
 		/>
 	{:else}
-		<!-- Summary stat cards -->
+		<!-- 1. Summary stat cards -->
 		<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-			<StatCard title="Total Cost" value={formatCurrency(data.totalCost)} trend="neutral" />
-			<StatCard title="Today" value={formatCurrency(data.costToday)} trend="neutral" />
+			<StatCard title={totalCostLabel} value={formatCurrency(data.totalCost)} trend="neutral" />
+			<StatCard
+				title="Today"
+				value={formatCurrency(data.costToday)}
+				subtitle={dominantModelToday ? dominantModelToday : undefined}
+				trend="neutral"
+			/>
 			<StatCard title="This Week" value={formatCurrency(data.costThisWeek)} trend="neutral" />
 			<StatCard title="This Month" value={formatCurrency(data.costThisMonth)} trend="neutral" />
 		</div>
 
-		<!-- Charts row -->
+		<!-- 2. Full-width: Stacked Area Chart (daily cost by model over time) -->
+		<div class="rounded-xl border border-border bg-card p-4">
+			<h2 class="mb-3 text-sm font-medium text-foreground">Cost Over Time by Model</h2>
+			<CostStackedAreaChart data={data.daily} />
+		</div>
+
+		<!-- 3. 2-col grid: Cost by Model donut + Token Efficiency Treemap -->
 		<div class="grid gap-4 lg:grid-cols-2">
-			<div class="rounded-xl border border-border bg-card p-4">
-				<h2 class="mb-3 text-sm font-medium text-foreground">Daily Cost Trend</h2>
-				<CostTrendChart data={data.daily} />
-			</div>
 			<div class="rounded-xl border border-border bg-card p-4">
 				<h2 class="mb-3 text-sm font-medium text-foreground">Cost by Model</h2>
 				<CostBreakdownChart data={data.byModel} />
 			</div>
+			<div class="rounded-xl border border-border bg-card p-4">
+				<h2 class="mb-3 text-sm font-medium text-foreground">Token Efficiency</h2>
+				<CostTreemapChart data={data.byModel} />
+			</div>
 		</div>
 
-		<!-- Cost table -->
+		<!-- 4. Full-width: Cost Heatmap Calendar -->
+		<div class="rounded-xl border border-border bg-card p-4">
+			<h2 class="mb-3 text-sm font-medium text-foreground">Daily Spending Heatmap</h2>
+			<CostHeatmapChart data={data.daily} />
+		</div>
+
+		<!-- 5. Full-width: Model Radar Chart -->
+		<div class="rounded-xl border border-border bg-card p-4">
+			<h2 class="mb-3 text-sm font-medium text-foreground">Model Comparison</h2>
+			<CostRadarChart data={data.byModel} daily={data.daily} />
+		</div>
+
+		<!-- 6. Cost table (existing, unchanged) -->
 		<div class="rounded-xl border border-border bg-card">
 			<div class="border-b border-border px-4 py-3">
 				<h2 class="text-sm font-medium text-foreground">Cost Details</h2>

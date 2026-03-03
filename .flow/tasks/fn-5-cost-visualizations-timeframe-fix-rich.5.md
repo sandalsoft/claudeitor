@@ -51,9 +51,8 @@ Create `src/lib/components/charts/CostRadarChart.svelte` — a radar/spider char
 - [ ] No TypeScript errors
 
 ## Done summary
-TBD
-
+Created CostRadarChart.svelte -- a pure SVG radar/spider chart that compares up to 6 models across 5 normalized dimensions (total spend, input/output cost rates, cache efficiency, usage frequency) with animated polygon draw-in, gradient fills, glowing vertices, hover interactivity, and a toggleable legend.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: a5bd4779b4717b78e4d8fbad169b3c97d274d173
+- Tests: npx tsc --noEmit, npm run build
 - PRs:

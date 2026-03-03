@@ -124,22 +124,72 @@ export const load: PageServerLoad = async ({ url }) => {
 				}
 			}
 
-			// Compute range-scoped byModel from filteredDaily
-			const filteredModelAgg = new Map<string, number>();
+			// Compute range-scoped byModel with full cost breakdown from raw token data
+			interface ModelAgg {
+				pricingKey: string;
+				inputCostUSD: number;
+				outputCostUSD: number;
+				cacheReadCostUSD: number;
+				cacheWriteCostUSD: number;
+				totalTokens: number;
+			}
+
+			const filteredModelAgg = new Map<string, ModelAgg>();
 			let rangeTotalCost = 0;
 
 			for (const day of filteredDaily) {
 				rangeTotalCost += day.totalCostUSD;
-				for (const [pricingKey, cost] of Object.entries(day.byModel)) {
-					filteredModelAgg.set(pricingKey, (filteredModelAgg.get(pricingKey) ?? 0) + cost);
+				const dayModels = costCache.days[day.date];
+				if (!dayModels) continue;
+
+				for (const [rawModelId, usage] of Object.entries(dayModels)) {
+					const pricingKey = mapModelId(rawModelId, pricing);
+					const modelPricing = pricing.models[pricingKey];
+					const totalTokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
+
+					let inputCost = 0;
+					let outputCost = 0;
+					let cacheReadCost = 0;
+					let cacheWriteCost = 0;
+
+					if (modelPricing) {
+						inputCost = (usage.input / 1_000_000) * modelPricing.input;
+						outputCost = (usage.output / 1_000_000) * modelPricing.output;
+						cacheReadCost = (usage.cacheRead / 1_000_000) * modelPricing.cacheRead;
+						cacheWriteCost = (usage.cacheWrite / 1_000_000) * modelPricing.cacheWrite;
+					}
+
+					const existing = filteredModelAgg.get(pricingKey);
+					if (existing) {
+						existing.inputCostUSD += inputCost;
+						existing.outputCostUSD += outputCost;
+						existing.cacheReadCostUSD += cacheReadCost;
+						existing.cacheWriteCostUSD += cacheWriteCost;
+						existing.totalTokens += totalTokens;
+					} else {
+						filteredModelAgg.set(pricingKey, {
+							pricingKey,
+							inputCostUSD: inputCost,
+							outputCostUSD: outputCost,
+							cacheReadCostUSD: cacheReadCost,
+							cacheWriteCostUSD: cacheWriteCost,
+							totalTokens
+						});
+					}
 				}
 			}
 
-			const byModel = [...filteredModelAgg.entries()]
-				.map(([pricingKey, totalCostUSD]) => ({
-					modelId: pricingKey,
-					pricingKey,
-					totalCostUSD
+			const byModel = [...filteredModelAgg.values()]
+				.map((agg) => ({
+					modelId: agg.pricingKey,
+					pricingKey: agg.pricingKey,
+					totalCostUSD:
+						agg.inputCostUSD + agg.outputCostUSD + agg.cacheReadCostUSD + agg.cacheWriteCostUSD,
+					inputCostUSD: agg.inputCostUSD,
+					outputCostUSD: agg.outputCostUSD,
+					cacheReadCostUSD: agg.cacheReadCostUSD,
+					cacheWriteCostUSD: agg.cacheWriteCostUSD,
+					totalTokens: agg.totalTokens
 				}))
 				.sort((a, b) => b.totalCostUSD - a.totalCostUSD);
 
@@ -150,6 +200,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				costThisMonth,
 				byModel,
 				daily: filteredDaily,
+				allDaily,
 				tableRows,
 				range
 			};
