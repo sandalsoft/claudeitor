@@ -1,0 +1,15 @@
+{"timestamp":1772494734769,"issueId":"issue-1","category":"unhandled-exception","file":"http://localhost:5173/node_modules/.vite/deps/chunk-7NWJUUMV.js?v=62fdfc02","action":"detected","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772494734770,"issueId":"issue-1","category":"unhandled-exception","file":"http://localhost:5173/node_modules/.vite/deps/chunk-7NWJUUMV.js?v=62fdfc02","action":"fix_started","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772494734828,"issueId":"issue-1","category":"","file":"","action":"needs_human","outcome":"dirty_working_tree","duration":0,"model":"","attempt":0}
+{"timestamp":1772496862515,"issueId":"issue-1","category":"unhandled-exception","file":"http://localhost:5173/node_modules/.vite/deps/chunk-7NWJUUMV.js?v=62fdfc02","action":"detected","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772496862515,"issueId":"issue-1","category":"unhandled-exception","file":"http://localhost:5173/node_modules/.vite/deps/chunk-7NWJUUMV.js?v=62fdfc02","action":"fix_started","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772496862552,"issueId":"issue-1","category":"","file":"","action":"needs_human","outcome":"dirty_working_tree","duration":0,"model":"","attempt":0}
+{"timestamp":1772496863523,"issueId":"issue-2","category":"unhandled-exception","file":"","action":"detected","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772496863524,"issueId":"issue-2","category":"unhandled-exception","file":"","action":"fix_started","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772496863560,"issueId":"issue-2","category":"","file":"","action":"needs_human","outcome":"dirty_working_tree","duration":0,"model":"","attempt":0}
+{"timestamp":1772496969680,"issueId":"issue-3","category":"runtime-error","file":"src/lib/server/claude/session-detail.ts","action":"detected","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772496969681,"issueId":"issue-3","category":"runtime-error","file":"src/lib/server/claude/session-detail.ts","action":"fix_started","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772496969704,"issueId":"issue-3","category":"","file":"","action":"needs_human","outcome":"dirty_working_tree","duration":0,"model":"","attempt":0}
+{"timestamp":1772496969706,"issueId":"issue-4","category":"runtime-error","file":"src/routes/sessions/[id]/+page.server.ts","action":"detected","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772496969706,"issueId":"issue-4","category":"runtime-error","file":"src/routes/sessions/[id]/+page.server.ts","action":"fix_started","outcome":"","duration":0,"model":"","attempt":0}
+{"timestamp":1772496969729,"issueId":"issue-4","category":"","file":"","action":"needs_human","outcome":"dirty_working_tree","duration":0,"model":"","attempt":0}

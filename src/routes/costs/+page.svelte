@@ -13,10 +13,10 @@
 
 	// Date range tabs
 	const ranges = [
+		{ value: 1, label: '1d' },
 		{ value: 7, label: '7d' },
-		{ value: 14, label: '14d' },
 		{ value: 30, label: '30d' },
-		{ value: 90, label: '90d' }
+		{ value: 0, label: 'All' }
 	] as const;
 
 	function selectRange(range: number) {

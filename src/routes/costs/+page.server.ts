@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
 			// Date range filter from query params (default 30 days)
 			const rangeParam = url.searchParams.get('range');
-			const validRanges = [7, 14, 30, 90] as const;
+			const validRanges = [0, 1, 7, 30] as const;
 			const range = validRanges.includes(Number(rangeParam) as (typeof validRanges)[number])
 				? (Number(rangeParam) as (typeof validRanges)[number])
 				: 30;
@@ -35,11 +35,6 @@ export const load: PageServerLoad = async ({ url }) => {
 
 			const todayStr = localDate(now);
 
-			// DST-safe: use setDate() instead of millisecond subtraction
-			const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-			rangeStart.setDate(rangeStart.getDate() - (range - 1));
-			const rangeStartStr = localDate(rangeStart);
-
 			const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 			weekStart.setDate(weekStart.getDate() - 6);
 			const weekStartStr = localDate(weekStart);
@@ -49,10 +44,20 @@ export const load: PageServerLoad = async ({ url }) => {
 			const monthStartStr = localDate(monthStart);
 
 			// Filter daily costs by calendar date threshold (not entry count)
+			// range=0 means "All Time" — no filtering
 			const allDaily = costSummary.daily;
-			const filteredDaily = allDaily.filter(
-				(d) => d.date >= rangeStartStr && d.date <= todayStr
-			);
+			let filteredDaily: typeof allDaily;
+
+			if (range === 0) {
+				filteredDaily = allDaily;
+			} else {
+				const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+				rangeStart.setDate(rangeStart.getDate() - (range - 1));
+				const rangeStartStr = localDate(rangeStart);
+				filteredDaily = allDaily.filter(
+					(d) => d.date >= rangeStartStr && d.date <= todayStr
+				);
+			}
 
 			let costToday = 0;
 			let costThisWeek = 0;
@@ -119,12 +124,31 @@ export const load: PageServerLoad = async ({ url }) => {
 				}
 			}
 
+			// Compute range-scoped byModel from filteredDaily
+			const filteredModelAgg = new Map<string, number>();
+			let rangeTotalCost = 0;
+
+			for (const day of filteredDaily) {
+				rangeTotalCost += day.totalCostUSD;
+				for (const [pricingKey, cost] of Object.entries(day.byModel)) {
+					filteredModelAgg.set(pricingKey, (filteredModelAgg.get(pricingKey) ?? 0) + cost);
+				}
+			}
+
+			const byModel = [...filteredModelAgg.entries()]
+				.map(([pricingKey, totalCostUSD]) => ({
+					modelId: pricingKey,
+					pricingKey,
+					totalCostUSD
+				}))
+				.sort((a, b) => b.totalCostUSD - a.totalCostUSD);
+
 			return {
-				totalCost: costSummary.totalCostUSD,
+				totalCost: rangeTotalCost,
 				costToday,
 				costThisWeek,
 				costThisMonth,
-				byModel: costSummary.byModel,
+				byModel,
 				daily: filteredDaily,
 				tableRows,
 				range
