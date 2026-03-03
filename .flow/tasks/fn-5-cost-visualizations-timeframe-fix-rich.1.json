@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-03-03T02:16:19.296230Z",
+  "depends_on": [],
+  "epic": "fn-5-cost-visualizations-timeframe-fix-rich",
+  "id": "fn-5-cost-visualizations-timeframe-fix-rich.1",
+  "priority": 1,
+  "spec_path": ".flow/tasks/fn-5-cost-visualizations-timeframe-fix-rich.1.md",
+  "status": "todo",
+  "title": "Fix timeframe selector and Cost by Model filtering bug",
+  "updated_at": "2026-03-03T02:16:19.296425Z"
+}

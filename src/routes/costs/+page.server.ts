@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
 			// Date range filter from query params (default 30 days)
 			const rangeParam = url.searchParams.get('range');
-			const validRanges = [7, 14, 30, 90] as const;
+			const validRanges = [0, 1, 7, 30] as const;
 			const range = validRanges.includes(Number(rangeParam) as (typeof validRanges)[number])
 				? (Number(rangeParam) as (typeof validRanges)[number])
 				: 30;
@@ -35,11 +35,6 @@ export const load: PageServerLoad = async ({ url }) => {
 
 			const todayStr = localDate(now);
 
-			// DST-safe: use setDate() instead of millisecond subtraction
-			const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-			rangeStart.setDate(rangeStart.getDate() - (range - 1));
-			const rangeStartStr = localDate(rangeStart);
-
 			const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 			weekStart.setDate(weekStart.getDate() - 6);
 			const weekStartStr = localDate(weekStart);
@@ -49,10 +44,20 @@ export const load: PageServerLoad = async ({ url }) => {
 			const monthStartStr = localDate(monthStart);
 
 			// Filter daily costs by calendar date threshold (not entry count)
+			// range=0 means "All Time" — no filtering
 			const allDaily = costSummary.daily;
-			const filteredDaily = allDaily.filter(
-				(d) => d.date >= rangeStartStr && d.date <= todayStr
-			);
+			let filteredDaily: typeof allDaily;
+
+			if (range === 0) {
+				filteredDaily = allDaily;
+			} else {
+				const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+				rangeStart.setDate(rangeStart.getDate() - (range - 1));
+				const rangeStartStr = localDate(rangeStart);
+				filteredDaily = allDaily.filter(
+					(d) => d.date >= rangeStartStr && d.date <= todayStr
+				);
+			}
 
 			let costToday = 0;
 			let costThisWeek = 0;
@@ -119,13 +124,83 @@ export const load: PageServerLoad = async ({ url }) => {
 				}
 			}
 
+			// Compute range-scoped byModel with full cost breakdown from raw token data
+			interface ModelAgg {
+				pricingKey: string;
+				inputCostUSD: number;
+				outputCostUSD: number;
+				cacheReadCostUSD: number;
+				cacheWriteCostUSD: number;
+				totalTokens: number;
+			}
+
+			const filteredModelAgg = new Map<string, ModelAgg>();
+			let rangeTotalCost = 0;
+
+			for (const day of filteredDaily) {
+				rangeTotalCost += day.totalCostUSD;
+				const dayModels = costCache.days[day.date];
+				if (!dayModels) continue;
+
+				for (const [rawModelId, usage] of Object.entries(dayModels)) {
+					const pricingKey = mapModelId(rawModelId, pricing);
+					const modelPricing = pricing.models[pricingKey];
+					const totalTokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
+
+					let inputCost = 0;
+					let outputCost = 0;
+					let cacheReadCost = 0;
+					let cacheWriteCost = 0;
+
+					if (modelPricing) {
+						inputCost = (usage.input / 1_000_000) * modelPricing.input;
+						outputCost = (usage.output / 1_000_000) * modelPricing.output;
+						cacheReadCost = (usage.cacheRead / 1_000_000) * modelPricing.cacheRead;
+						cacheWriteCost = (usage.cacheWrite / 1_000_000) * modelPricing.cacheWrite;
+					}
+
+					const existing = filteredModelAgg.get(pricingKey);
+					if (existing) {
+						existing.inputCostUSD += inputCost;
+						existing.outputCostUSD += outputCost;
+						existing.cacheReadCostUSD += cacheReadCost;
+						existing.cacheWriteCostUSD += cacheWriteCost;
+						existing.totalTokens += totalTokens;
+					} else {
+						filteredModelAgg.set(pricingKey, {
+							pricingKey,
+							inputCostUSD: inputCost,
+							outputCostUSD: outputCost,
+							cacheReadCostUSD: cacheReadCost,
+							cacheWriteCostUSD: cacheWriteCost,
+							totalTokens
+						});
+					}
+				}
+			}
+
+			const byModel = [...filteredModelAgg.values()]
+				.map((agg) => ({
+					modelId: agg.pricingKey,
+					pricingKey: agg.pricingKey,
+					totalCostUSD:
+						agg.inputCostUSD + agg.outputCostUSD + agg.cacheReadCostUSD + agg.cacheWriteCostUSD,
+					inputCostUSD: agg.inputCostUSD,
+					outputCostUSD: agg.outputCostUSD,
+					cacheReadCostUSD: agg.cacheReadCostUSD,
+					cacheWriteCostUSD: agg.cacheWriteCostUSD,
+					totalTokens: agg.totalTokens
+				}))
+				.sort((a, b) => b.totalCostUSD - a.totalCostUSD);
+
 			return {
-				totalCost: costSummary.totalCostUSD,
+				totalCost: rangeTotalCost,
 				costToday,
 				costThisWeek,
 				costThisMonth,
-				byModel: costSummary.byModel,
+				byModel,
 				daily: filteredDaily,
+				allDaily,
 				tableRows,
 				range
 			};
