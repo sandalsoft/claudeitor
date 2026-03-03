@@ -47,9 +47,8 @@ Create `src/lib/components/charts/CostTreemapChart.svelte` — a treemap visuali
 - [ ] No TypeScript errors
 
 ## Done summary
-TBD
-
+Implemented CostTreemapChart.svelte -- a d3-powered treemap visualization showing hierarchical cost distribution (model -> token type leaves) with size proportional to cost, HSL color variants per token type, foreignObject labels with truncation, interactive tooltips, and responsive layout.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 59c74aa94ecc894b47586c1245dbbaacc75b4db6
+- Tests: npx tsc --noEmit, npm run build
 - PRs:
