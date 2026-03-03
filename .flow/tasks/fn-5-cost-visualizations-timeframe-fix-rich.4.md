@@ -48,9 +48,8 @@ Create `src/lib/components/charts/CostHeatmapChart.svelte` — a GitHub-style co
 - [ ] No TypeScript errors
 
 ## Done summary
-TBD
-
+Created CostHeatmapChart.svelte - a GitHub-style contribution heatmap showing daily spending intensity with D3 sequential color scale, adaptive cell sizing, month/day-of-week labels, hover tooltips, and a pulsing animation on today's cell.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 54f69545e1e3dbf7289c0b446804f6e5ab8fc731
+- Tests: npx tsc --noEmit, npm run build
 - PRs:
