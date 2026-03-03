@@ -51,9 +51,8 @@ Ensure all required data is passed to the page:
 - [ ] Build succeeds (`npm run build`)
 
 ## Done summary
-TBD
-
+Wired all 4 new chart components (stacked area, treemap, heatmap, radar) into the cost page with a new full-width + 2-col responsive layout, enriched the server byModel data with per-token-type cost breakdowns for treemap/radar, and updated stat cards with range-aware labeling and dominant model badges.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: e7297bfe4e7e71f4765d71915cb000b64461f8a8
+- Tests: npx tsc --noEmit, npm run build
 - PRs:
