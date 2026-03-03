@@ -57,8 +57,13 @@
 		<p class="mt-1 text-lg font-semibold text-foreground">
 			{formatDuration(metadata.durationMs)}
 		</p>
-		<p class="mt-0.5 text-xs text-muted-foreground">
-			{formatDateTime(metadata.startTime)}
+		<p class="mt-0.5 text-xs text-muted-foreground" title="Active processing time by Claude">
+			{formatDuration(metadata.processingMs)} active
+			{#if metadata.durationMs > 0}
+				<span class="text-muted-foreground/60">
+					({Math.round((metadata.processingMs / metadata.durationMs) * 100)}%)
+				</span>
+			{/if}
 		</p>
 	</div>
 

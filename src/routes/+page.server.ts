@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { SessionEntry } from '$lib/data/types';
+import { readSessionDetail } from '$lib/server/claude/session-detail';
 import type { RepoInfo } from '$lib/server/git/types';
 import { withSpan } from '$lib/server/telemetry/span-helpers';
 
@@ -164,7 +165,20 @@ export const load: PageServerLoad = async () => {
 			const trends = computeTrends(sessions, gitResult.repos, costSummary.daily);
 
 			// Recent sessions: single-pass top-5 selection (avoids full-array sort)
-			const recentSessions = topN(sessions, 5, (a, b) => b.timestamp - a.timestamp);
+			const recentSessionsRaw = topN(sessions, 5, (a, b) => b.timestamp - a.timestamp);
+
+			// Enrich with duration + processing time (only 5 sessions, acceptable I/O)
+			const recentSessions = await Promise.all(
+				recentSessionsRaw.map(async (s) => {
+					if (!s.sessionId) return { ...s, durationMs: 0, processingMs: 0 };
+					const detail = await readSessionDetail(s.sessionId, config.claudeDir);
+					return {
+						...s,
+						durationMs: detail?.metadata.durationMs ?? 0,
+						processingMs: detail?.metadata.processingMs ?? 0
+					};
+				})
+			);
 
 			// Alerts: repos with hygiene issues (use path-based IDs for uniqueness)
 			const alerts: Array<{

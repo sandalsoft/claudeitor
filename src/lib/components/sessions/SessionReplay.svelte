@@ -125,28 +125,72 @@
 					{#if msg.toolCalls && msg.toolCalls.length > 0}
 						<div class="mt-3 space-y-2">
 							{#each msg.toolCalls as tool}
-								<div class="rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-xs">
-									<div class="flex items-center gap-2 font-medium text-foreground/70">
-										<Icon name="code" size={12} class="shrink-0" />
-										<span>{tool.name}</span>
-										{#if tool.filePath}
-											<span class="truncate font-mono text-muted-foreground">
-												{tool.filePath.split('/').slice(-2).join('/')}
-											</span>
+								{#if tool.name === 'AskUserQuestion' && tool.questions && tool.questions.length > 0}
+									<!-- Interview question card -->
+									<div class="rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2.5 text-xs">
+										<div class="mb-2 flex items-center gap-2 font-medium text-blue-600 dark:text-blue-400">
+											<Icon name="message-circle-question" size={13} class="shrink-0" />
+											<span>Question</span>
+										</div>
+										<div class="space-y-2.5">
+											{#each tool.questions as q}
+												<div>
+													<p class="mb-1.5 text-[13px] leading-snug font-medium text-foreground">
+														{q.question}
+													</p>
+													{#if q.options.length > 0}
+														<div class="flex flex-wrap gap-1.5">
+															{#each q.options as opt}
+																{@const isSelected = q.selectedAnswer === opt.label}
+																<span
+																	class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-tight transition-colors
+																		{isSelected
+																			? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium'
+																			: 'border-border/60 bg-muted/40 text-muted-foreground'}"
+																	title={opt.description}
+																>
+																	{#if isSelected}
+																		<Icon name="check" size={10} class="shrink-0" />
+																	{/if}
+																	{opt.label}
+																</span>
+															{/each}
+														</div>
+													{:else if q.selectedAnswer}
+														<div class="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+															<Icon name="check" size={10} class="shrink-0" />
+															<span class="text-[11px] font-medium">{q.selectedAnswer}</span>
+														</div>
+													{/if}
+												</div>
+											{/each}
+										</div>
+									</div>
+								{:else}
+									<!-- Standard tool call -->
+									<div class="rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-xs">
+										<div class="flex items-center gap-2 font-medium text-foreground/70">
+											<Icon name="code" size={12} class="shrink-0" />
+											<span>{tool.name}</span>
+											{#if tool.filePath}
+												<span class="truncate font-mono text-muted-foreground">
+													{tool.filePath.split('/').slice(-2).join('/')}
+												</span>
+											{/if}
+										</div>
+										{#if tool.diff !== undefined}
+											{#if tool.diff}
+												<pre
+													class="mt-1.5 max-h-48 overflow-auto rounded bg-background p-2 font-mono text-[11px] leading-tight"
+												>{tool.diff}</pre>
+											{:else}
+												<p class="mt-1 text-muted-foreground">
+													File change detected
+												</p>
+											{/if}
 										{/if}
 									</div>
-									{#if tool.diff !== undefined}
-										{#if tool.diff}
-											<pre
-												class="mt-1.5 max-h-48 overflow-auto rounded bg-background p-2 font-mono text-[11px] leading-tight"
-											>{tool.diff}</pre>
-										{:else}
-											<p class="mt-1 text-muted-foreground">
-												File change detected
-											</p>
-										{/if}
-									{/if}
-								</div>
+								{/if}
 							{/each}
 						</div>
 					{/if}

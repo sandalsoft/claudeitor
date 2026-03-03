@@ -78,6 +78,10 @@ export interface SessionEntry {
 	timestamp: number;
 	project: string;
 	sessionId?: string;
+	/** Wall clock duration in ms (enriched on demand, not in history.jsonl). */
+	durationMs?: number;
+	/** Active processing time in ms (enriched on demand). */
+	processingMs?: number;
 }
 
 // ─── Skills & Agents ──────────────────────────────────────────
@@ -159,6 +163,8 @@ export interface LiveSessionTelemetry {
 	recentFiles: LiveFileMutation[];
 	messageCount: number;
 	model: string;
+	/** Cumulative active processing time in ms (user→assistant intervals). */
+	processingMs: number;
 }
 
 // ─── Setup Check (/setup) ─────────────────────────────────────

@@ -24,6 +24,8 @@
 
 	const fileCount = $derived(session.telemetry?.recentFiles.length ?? 0);
 	const toolCallCount = $derived(session.telemetry?.recentToolCalls.length ?? 0);
+	const processingMs = $derived(session.telemetry?.processingMs ?? 0);
+	const processingDisplay = $derived(formatProcessingTime(processingMs));
 
 	function resolveModelFamily(displayModel: string): string {
 		const lower = displayModel.toLowerCase();
@@ -31,6 +33,18 @@
 		if (lower.includes('sonnet')) return 'sonnet';
 		if (lower.includes('haiku')) return 'haiku';
 		return 'unknown';
+	}
+
+	function formatProcessingTime(ms: number): string {
+		if (ms < 1000) return '<1s';
+		const seconds = Math.floor(ms / 1000);
+		if (seconds < 60) return `${seconds}s`;
+		const minutes = Math.floor(seconds / 60);
+		const remainingSeconds = seconds % 60;
+		if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+		const hours = Math.floor(minutes / 60);
+		const remainingMinutes = minutes % 60;
+		return `${hours}h ${remainingMinutes}m`;
 	}
 
 	function modelBadgeVariant(family: string): BadgeVariant {
@@ -60,9 +74,14 @@
 				<span class="truncate text-xs text-muted-foreground">{projectName}</span>
 			{/if}
 		</div>
-		<div class="flex items-center gap-1.5 shrink-0 text-muted-foreground">
-			<Icon name="clock" size={14} />
-			<DurationTimer startTime={session.startedAt} class="text-sm text-foreground" />
+		<div class="flex items-center gap-3 shrink-0 text-muted-foreground">
+			<div class="flex items-center gap-1.5">
+				<Icon name="clock" size={14} />
+				<DurationTimer startTime={session.startedAt} class="text-sm text-foreground" />
+			</div>
+			<span class="text-xs tabular-nums" title="Active processing time">
+				{processingDisplay} active
+			</span>
 		</div>
 	</div>
 

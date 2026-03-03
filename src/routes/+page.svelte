@@ -175,6 +175,8 @@
 							description={session.display}
 							project={session.project}
 							timestamp={session.timestamp}
+							durationMs={session.durationMs}
+							processingMs={session.processingMs}
 						/>
 					{/each}
 				</div>
