@@ -39,9 +39,8 @@ Create `src/lib/components/charts/CostStackedAreaChart.svelte` — a stacked are
 - [ ] No TypeScript errors
 
 ## Done summary
-TBD
-
+Created CostStackedAreaChart.svelte - a stacked area chart using d3.stack() + d3.area() that shows daily cost over time broken down by model, with gradient fills, hover crosshair, per-model tooltip, and layer dimming on hover.
 ## Evidence
-- Commits:
-- Tests:
+- Commits: eaf30122778255ab52194d9cf70e0383001abfd5
+- Tests: npx tsc --noEmit, npm run build
 - PRs:
